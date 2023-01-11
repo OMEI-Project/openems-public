@@ -1,0 +1,3 @@
+# HybridController
+
+Init HybridESSController of OMEI project, see more at https://omei.bayern.
