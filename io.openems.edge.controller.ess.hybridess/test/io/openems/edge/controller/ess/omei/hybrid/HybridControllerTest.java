@@ -296,6 +296,35 @@ public class HybridControllerTest {
 	}
 
 	@Test
+	public void filterChargePower() throws Exception {
+		ControllerTest controllerTest = createControllerTest();
+		controllerTest.next(new TestCase() // filterChargePower#1 Below energy minimum.
+					.input(METER_ACTIVE_POWER,0) // Set consumption to 0
+					.input(MAIN_CAPACITY, 400_000)
+					.input(SUPPORT_CAPACITY, 276_000)
+					.input(MAIN_SOC, 10) // 40_000Wh
+					.input(SUPPORT_SOC, 10)  // 27_600Wh
+					.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -10_000)
+					.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+					.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -12_000)
+					.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+					.output(MAIN_SET_ACTIVE_POWER_EQUALS, -10_000)
+					.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -12_000))
+				.next(new TestCase() // filterChargePower#2 Below energy minimum.
+						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
+						.input(MAIN_CAPACITY, 400_000)
+						.input(SUPPORT_CAPACITY, 276_000)
+						.input(MAIN_SOC, 10) // 40_000Wh
+						.input(SUPPORT_SOC, 10)  // 27_600Wh
+						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, -150_000)
+						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -150_000)
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -50_000));
+	}
+
+	@Test
 	public void dischargeSplit() throws Exception {
 		int required_power  = 200_000;
 		ControllerTest controllerTest = createControllerTest();
