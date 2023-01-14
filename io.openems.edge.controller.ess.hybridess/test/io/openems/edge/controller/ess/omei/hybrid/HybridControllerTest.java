@@ -146,7 +146,7 @@ public class HybridControllerTest {
 		ControllerTest controllerTest = createControllerTest();
 		addPrediction("2022-12-08T10:00","2022-12-08T12:00", predictedPower, powerPrediction);
 
-		controllerTest.next(new TestCase() // both in green -> minEnergy satisfied.
+		controllerTest.next(new TestCase() // chargePowerPrediction#1
 						.timeleap(clock,1, ChronoUnit.HOURS) // Advance to time window with prediction.
 				.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 				.input(MAIN_CAPACITY, 400_000)
@@ -167,7 +167,19 @@ public class HybridControllerTest {
 		int predictedEnergy = 500_000;
 		ControllerTest controllerTest = createControllerTest();
 		addPrediction("2022-12-08T10:00","2022-12-08T12:00", predictedEnergy, energyPrediction);
-		controllerTest.next(new TestCase() // Below energy minimum set by prediction.
+		controllerTest.next(new TestCase() // chargeEnergyPrediction#1
+						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
+						.input(MAIN_CAPACITY, 400_000)
+						.input(SUPPORT_CAPACITY, 276_000)
+						.input(MAIN_SOC, 75) // Green SoC area 300_000Wh
+						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
+						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0)
+				).next(new TestCase() // chargeEnergyPrediction#2 Below energy minimum set by prediction.
 						.timeleap(clock,1, ChronoUnit.HOURS) // Advance to time window with prediction.
 						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 						.input(MAIN_CAPACITY, 400_000)
@@ -180,7 +192,20 @@ public class HybridControllerTest {
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
 						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -1700) // Missing energy 6800Wh over 2h -> 3400W split 50:50
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -1700))
-				.next(new TestCase() // Above energy minimum set by prediction.
+				.next(new TestCase() // chargeEnergyPrediction#3
+						.timeleap(clock, 1, ChronoUnit.HOURS)
+						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
+						.input(MAIN_CAPACITY, 400_000)
+						.input(SUPPORT_CAPACITY, 276_000)
+						.input(MAIN_SOC, 100) // Green SoC area 400_000Wh
+						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
+						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
+						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0))
+				.next(new TestCase() // chargeEnergyPrediction#4 Above energy minimum set by prediction.
 						.timeleap(clock,30, ChronoUnit.MINUTES)
 						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 						.input(MAIN_CAPACITY, 400_000)
@@ -193,7 +218,7 @@ public class HybridControllerTest {
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
 						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -2266) // Missing energy 6800Wh over 1.5h -> 4533W split 50:50
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -2267)) // Support gets remaining 1W lost by rounding
-				.next(new TestCase() // Below energy minimum. 1.5h remaining
+				.next(new TestCase() // chargeEnergyPrediction#5; Below energy minimum. 1min remaining
 						.timeleap(clock,89, ChronoUnit.MINUTES) // Advance to 1min before prediction elapses.
 						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 						.input(MAIN_CAPACITY, 400_000)
@@ -204,10 +229,10 @@ public class HybridControllerTest {
 						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER/2) // Missing energy 26800Wh over 1min -> 1608000 limited by maxGridPower
+						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER/2) // Missing energy 6800Wh over 1min -> 1608000 limited by maxGridPower
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER/2))
-				.next(new TestCase()
-						.timeleap(clock, 10, ChronoUnit.HOURS) // Advance to time after prediction, with min Energy met.
+				.next(new TestCase() // chargeEnergyPrediction#6
+						.timeleap(clock, 10, ChronoUnit.HOURS) // Advance to time after prediction, with min Energy not met.
 						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 						.input(MAIN_CAPACITY, 400_000)
 						.input(SUPPORT_CAPACITY, 276_000)
@@ -219,27 +244,14 @@ public class HybridControllerTest {
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
 						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0) // No prediction and no energy from production
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0)
-				)
-				.next(new TestCase() // Above energy minimum set by prediction.
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 100) // Green SoC area 400_000Wh
-						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0));
+				);
 	}
 
 	@Test
 	public void chargeUsesProduction() throws Exception {
 		int productionPower = 400_000;
 		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase()
-				.timeleap(clock,1, ChronoUnit.HOURS) // Advance to time window with prediction.
+		controllerTest.next(new TestCase() // chargeUsesProduction#1
 				.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 				.input(PRODUCTION_POWER, productionPower)
 				.input(MAIN_CAPACITY, 400_000)
@@ -257,7 +269,7 @@ public class HybridControllerTest {
 	@Test
 	public void chargeMinEnergy() throws Exception {
 		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // Below energy minimum.
+		controllerTest.next(new TestCase() // ChargeMinEnergy#1 Below energy minimum.
 						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 						.input(MAIN_CAPACITY, 400_000)
 						.input(SUPPORT_CAPACITY, 276_000)
