@@ -1,6 +1,7 @@
 package io.openems.edge.ess.api;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import io.openems.edge.common.channel.Channel;
@@ -53,6 +54,36 @@ public class CalculateGridMode {
 			result = GridMode.ON_GRID;
 		}
 		if (this.values.size() == offGrids) {
+			result = GridMode.OFF_GRID;
+		}
+		return result;
+	}
+
+	public static GridMode calculate(Collection<GridMode> values) {
+		if (values.isEmpty()) {
+			return GridMode.UNDEFINED;
+		}
+
+		var onGrids = 0;
+		var offGrids = 0;
+		for (GridMode gridMode : values) {
+			switch (gridMode) {
+				case OFF_GRID:
+					offGrids++;
+					break;
+				case ON_GRID:
+					onGrids++;
+					break;
+				case UNDEFINED:
+					break;
+			}
+		}
+
+		var result = GridMode.UNDEFINED;
+		if (values.size() == onGrids) {
+			result = GridMode.ON_GRID;
+		}
+		if (values.size() == offGrids) {
 			result = GridMode.OFF_GRID;
 		}
 		return result;

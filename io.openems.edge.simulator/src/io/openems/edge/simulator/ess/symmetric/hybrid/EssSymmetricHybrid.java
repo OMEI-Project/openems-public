@@ -342,7 +342,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	}
 
 	private void calculateChargeTime(int power) {
-		if(power > 0) {
+		if(power < 0) {
 			throw new IllegalArgumentException("Power for charging must be negative");
 		}
 		int unusedCapacity = this.getCapacity().orElse(0) - this.getActivePower().orElse(0);
@@ -354,7 +354,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	}
 
 	private void calculateDischargeTime(int power) {
-		if(power < 0) {
+		if(power > 0) {
 			throw new IllegalArgumentException("Power for charging must be positive");
 		}
 
@@ -369,7 +369,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	
 	/**
 	 * Calculate the Energy values from ActivePower.
-	 * 
+	 * <p>
 	 * TODO {@link CalculateEnergyFromPower#update(Integer)} does not use 
 	 * the shared clock e.g. {@code Instant.now()} instead of Instant.now(componentManager.getClock()).
 	 * This could produce errors during simulation and testing on timeleaps, faster clock etc.
