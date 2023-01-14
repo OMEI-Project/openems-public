@@ -44,6 +44,22 @@ import io.openems.edge.meter.api.SymmetricMeter;
 )
 public class HybridControllerImpl extends AbstractOpenemsComponent implements HybridController, Controller, OpenemsComponent {
 
+	/*
+	 * Distribution of available charge power between the two ESSs based
+	 * on the SoC.
+	 * ChargeTable[SocAreaSupport][SocAreaMain] = % of available power to be assigned to main.
+	 */
+	private final static double[][] CHARGE_TABLE =
+			{{0.5, 0.3, 0},
+			{0.7, 0.7, 0.2},
+			{1.0, 0.8, 0.5}};
+	private final static double[][] DISCHARGE_TABLE =
+			{{0.5, 0.8, 1.0},
+			{0.2, 0.5, 0.7},
+			{0, 0.3, 0.5}};
+
+	private final static int[] MAIN_SOC_BOUNDARIES = {20,70};
+	private final static int[] SUPPORT_SOC_BOUNDARIES = {20, 50};
 	private final Logger log = LoggerFactory.getLogger(HybridControllerImpl.class);
 		
 	private Config config = null;
@@ -131,7 +147,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		int requiredPower = sum.getConsumptionActivePower().get();
 		double powerSplit = 1;
 		if(requiredPower >= netPowerThreshold*mainEss.getMaxApparentPower().orElse(0)
-			|| !SoCArea.getArea(mainEss, defaultMinimumEnergy).equals(SoCArea.GREEN)) {
+			|| !SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES).equals(SoCArea.GREEN)) {
 
 			// TODO Implement for discharge. No numbers yet.
 			powerSplit = dischargePowerSplit(mainEss, supportEss);
@@ -155,8 +171,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 		if(minimumStoredEnergy >= totalStoredEnergy) {
 			targetGridSetPoint = calculateGridSetPoint(minimumStoredEnergy, totalStoredEnergy, now);
-		} else if (SoCArea.getArea(mainEss,defaultMinimumEnergy).equals(SoCArea.RED)
-					|| SoCArea.getArea(supportEss, defaultMinimumEnergy).equals(SoCArea.RED)) {
+		} else if (SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES).equals(SoCArea.RED)
+					|| SoCArea.getArea(supportEss, SUPPORT_SOC_BOUNDARIES).equals(SoCArea.RED)) {
 			targetGridSetPoint = -this.maxGridPower;
 		} else {
 			targetGridSetPoint = getPredictedPower();
@@ -224,7 +240,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	
 	private int getMinimumStoredEnergy() {
 		if(lastEnergyPrediction == null
-				|| lastEnergyPrediction.getEnd().isAfter(LocalDateTime.now(componentManager.getClock()))) {
+				|| lastEnergyPrediction.getEnd().isBefore(LocalDateTime.now(componentManager.getClock()))) {
 			Optional<Row> prediction = getPrediction(energyPredictionFile);
 			lastEnergyPrediction = prediction.orElse(null);
 		}
@@ -234,7 +250,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	private int getPredictedPower() {
 		if(lastPowerPrediction == null
-				|| lastPowerPrediction.getEnd().isAfter(LocalDateTime.now(componentManager.getClock()))) {
+				|| lastPowerPrediction.getEnd().isBefore(LocalDateTime.now(componentManager.getClock()))) {
 			Optional<Row> prediction = getPrediction(powerPredictionFile);
 			lastPowerPrediction = prediction.orElse(null);
 		}
@@ -265,18 +281,26 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	private double chargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
 		double powerSplit;
-		SoCArea mainEssArea = SoCArea.getArea(mainEss, defaultMinimumEnergy);
-		SoCArea supportEssArea = SoCArea.getArea(supportEss, defaultMinimumEnergy);
-		powerSplit = SoCArea.getPowerSplitCharging(mainEssArea, supportEssArea);
+		SoCArea mainEssArea = SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES);
+		SoCArea supportEssArea = SoCArea.getArea(supportEss, SUPPORT_SOC_BOUNDARIES);
+		powerSplit = getPowerSplitCharging(mainEssArea, supportEssArea);
 		return powerSplit;
 	}
 
 	private double dischargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
 		double powerSplit;
-		SoCArea mainEssArea = SoCArea.getArea(mainEss, defaultMinimumEnergy);
-		SoCArea supportEssArea = SoCArea.getArea(supportEss, defaultMinimumEnergy);
-		powerSplit = SoCArea.getPowerSplitDischarging(mainEssArea, supportEssArea);
+		SoCArea mainEssArea = SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES);
+		SoCArea supportEssArea = SoCArea.getArea(supportEss, SUPPORT_SOC_BOUNDARIES);
+		powerSplit = getPowerSplitDischarging(mainEssArea, supportEssArea);
 		return powerSplit;
+	}
+
+	private static double getPowerSplitCharging(SoCArea mainSocArea, SoCArea supportSocArea) {
+		return CHARGE_TABLE[supportSocArea.ordinal()][mainSocArea.ordinal()];
+	}
+
+	private static double getPowerSplitDischarging(SoCArea mainSocArea, SoCArea supportSocArea) {
+		return DISCHARGE_TABLE[supportSocArea.ordinal()][mainSocArea.ordinal()];
 	}
 
 	/**
@@ -300,41 +324,18 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		ORANGE,
 		GREEN;
 
-		/*
-		 * Distribution of available charge power between the two ESSs based
-		 * on the SoC.
-		 * ChargeTable[SocAreaSupport][SocAreaMain] = % of available power to be assigned to main.
-		 */
-		private final static double[][] CHARGE_TABLE = {{0.5, 0.3, 0},
-													   {0.7, 0.5, 0.2},
-				                                       {1.0, 0.8, 0.5}};
-		private final static double[][] DISCHARGE_TABLE = {{0.5, 0.8, 1.0},
-				 										  {0.2, 0.5, 0.7},
-				                                          {0, 0.3, 0.5}};
-
-		/*
-		 * TODO do we need to separate methods for the ESSs? If so this should maybe a method of the ESS.
-		 * But from my POV this should be controlled by controller.
-		 */
-		private static SoCArea getArea(ManagedSymmetricEss ess, int minimumEnergy) throws InvalidValueException {
+		private static SoCArea getArea(ManagedSymmetricEss ess, int[] boundaries) throws InvalidValueException {
 			SoCArea SoCArea;
+			int soc = ess.getSoc().getOrError();
 			int storedEnergy = ess.getCapacity().getOrError() * (ess.getSoc().getOrError()) / 100;
-			if (storedEnergy <= 0.5 * minimumEnergy) {
+			if (soc <= boundaries[0] ) {
 				SoCArea = HybridControllerImpl.SoCArea.RED;
-			} else if( storedEnergy <= 0.5* ess.getCapacity().getOrError()) {
+			} else if(soc <= boundaries[1]) {
 				SoCArea = HybridControllerImpl.SoCArea.ORANGE;
 			} else {
 				SoCArea= HybridControllerImpl.SoCArea.GREEN;
 			}
 			return SoCArea;
-		}
-
-		private static double getPowerSplitCharging(SoCArea mainSocArea, SoCArea supportSocArea) {
-			return CHARGE_TABLE[supportSocArea.ordinal()][mainSocArea.ordinal()];
-		}
-
-		private static double getPowerSplitDischarging(SoCArea mainSocArea, SoCArea supportSocArea) {
-			return DISCHARGE_TABLE[supportSocArea.ordinal()][mainSocArea.ordinal()];
 		}
 	}
 }

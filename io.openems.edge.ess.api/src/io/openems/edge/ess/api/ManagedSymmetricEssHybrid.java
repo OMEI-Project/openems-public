@@ -8,7 +8,7 @@ import io.openems.edge.common.channel.value.Value;
 
 public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 	
-	public enum ChannelId implements io.openems.edge.common.channel.ChannelId {
+	enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		
 		// TODO Naming scheme might be misleading. Charging the upperlimit actually results in less power charged.
 		
@@ -38,12 +38,11 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 		 * Range in [0, {@link ChannelId#ALLOWED_CHARGE_POWER}]
 		 */
 		LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT(Doc.of(OpenemsType.INTEGER) //
-				.unit(Unit.WATT))
-				
+				.unit(Unit.WATT)),
 		;
 		private final Doc doc;
 
-		private ChannelId(Doc doc) {
+		ChannelId(Doc doc) {
 			this.doc = doc;
 		}
 
@@ -53,27 +52,27 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 		}
 	}
 
-	public int filterPower(int targetPower);
+	int filterPower(int targetPower);
 	
 	/**
 	 * Gets upper boundary of possible charge power for this cycle.
-	 * 
+	 * <p>
 	 * Range in [{@link ChannelId#ALLOWED_CHARGE_POWER},0]
 	 * 
 	 * @return Returns upper boundary of possible charge power in [W].
 	 */
-	public default Value<Integer> getUpperPossibleChargePower() {
+	default Value<Integer> getUpperPossibleChargePower() {
 		return this.getUpperPossibleChargePowerChannel().value();
 	}
 	
 	/**
 	 * Gets lower boundary of possible charge power for this cycle.
-	 * 
+	 * <p>
 	 * Range in [{@link ChannelId#ALLOWED_CHARGE_POWER},0]
 	 * 
 	 * @return Returns lower boundary of possible charge power in [W].
 	 */
-	public default Value<Integer> getLowerPossibleChargePower() {
+	default Value<Integer> getLowerPossibleChargePower() {
 		return this.getLowerPossibleChargePowerChannel().value();
 	}
 	
@@ -83,7 +82,7 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 	 * 
 	 * @return Returns upper boundary of possible discharge power in [W].
 	 */
-	public default Value<Integer> getUpperPossibleDischargePower() {
+	default Value<Integer> getUpperPossibleDischargePower() {
 		return this.getUpperPossibleDischargePowerChannel().value();
 	}
 	
@@ -93,37 +92,36 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 	 * 
 	 * @return Returns lower boundary of possible discharge power in [W].
 	 */
-	public default Value<Integer> getLowerPossibleDischargePower() {
+	default Value<Integer> getLowerPossibleDischargePower() {
 		return this.getLowerPossibleDischargePowerChannel().value();
 	}
 	
-	public default void _setUpperPossibleChargePower(Integer value) {
+	default void _setUpperPossibleChargePower(Integer value) {
 		this.channel(ChannelId.UPPER_POSSIBLE_CHARGE_POWER_LIMIT).setNextValue(value);
 	}
-	public default void _setLowerPossibleChargePower(Integer value) {
+	default void _setLowerPossibleChargePower(Integer value) {
 		this.channel(ChannelId.LOWER_POSSIBLE_CHARGE_POWER_LIMIT).setNextValue(value);
 	}
-	public default void _setUpperPossibleDischargePower(Integer value) {
+	default void _setUpperPossibleDischargePower(Integer value) {
 		this.channel(ChannelId.UPPER_POSSIBLE_DISCHARGE_POWER_LIMIT).setNextValue(value);
 	}
-	public default void _setLowerPossibleDischargePower(Integer value) {
+	default void _setLowerPossibleDischargePower(Integer value) {
 		this.channel(ChannelId.LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT).setNextValue(value);
 	}
 	
-	public default IntegerReadChannel getUpperPossibleChargePowerChannel() {
+	default IntegerReadChannel getUpperPossibleChargePowerChannel() {
 		return channel(ChannelId.UPPER_POSSIBLE_CHARGE_POWER_LIMIT);
 	}
 	
-	public default IntegerReadChannel getLowerPossibleChargePowerChannel() {
+	default IntegerReadChannel getLowerPossibleChargePowerChannel() {
 		return channel(ChannelId.LOWER_POSSIBLE_CHARGE_POWER_LIMIT);
 	}
 	
-	public default IntegerReadChannel getUpperPossibleDischargePowerChannel() {
+	default IntegerReadChannel getUpperPossibleDischargePowerChannel() {
 		return channel(ChannelId.UPPER_POSSIBLE_DISCHARGE_POWER_LIMIT);
 	}
 	
-	public default IntegerReadChannel getLowerPossibleDischargePowerChannel() {
+	default IntegerReadChannel getLowerPossibleDischargePowerChannel() {
 		return channel(ChannelId.LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT);
 	}
-
 }
