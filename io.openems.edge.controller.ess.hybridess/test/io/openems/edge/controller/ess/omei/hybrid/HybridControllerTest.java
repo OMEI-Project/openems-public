@@ -193,7 +193,6 @@ public class HybridControllerTest {
 						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -1700) // Missing energy 6800Wh over 2h -> 3400W split 50:50
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -1700))
 				.next(new TestCase() // chargeEnergyPrediction#3
-						.timeleap(clock, 1, ChronoUnit.HOURS)
 						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 						.input(MAIN_CAPACITY, 400_000)
 						.input(SUPPORT_CAPACITY, 276_000)
