@@ -1,10 +1,16 @@
 package io.openems.edge.simulator;
 
+import io.openems.edge.common.test.Plot;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class CsvUtils {
 
@@ -97,6 +103,33 @@ public class CsvUtils {
 			readRecord(result, csvFormat, factor, line);
 		}
 		return result;
+	}
+
+	public static DataContainer parseCsvDirect(String csv, CsvFormat csvFormat, float factor) {
+		DataContainer result = new DataContainer();
+		String separator = getSeparator(csv, csvFormat);
+		List<String> values = new ArrayList<String>(Arrays.asList(csv.split(separator)));
+		if(!isNumeric(values.get(0))) {
+			result.setKeys(new String[]{values.get(0)});
+			values.remove(0);
+		}
+		values.stream()
+				.map(value -> value.replace(csvFormat.decimalSeparator, "."))
+				.map(value -> Float.parseFloat(value) * factor)
+				.forEach(value->result.addRecord(new Float[] {value}));
+		return result;
+	}
+
+	private static String getSeparator(String csv, CsvFormat csvFormat) {
+		String separator = " ";
+		if(csv.contains(csvFormat.lineSeparator)) {
+			separator = csvFormat.lineSeparator;
+		} else if(csv.contains("\\r?\\n")) {
+			separator = "\\r?\\n";
+		} else if (csv.contains(System.lineSeparator())) {
+			separator = System.lineSeparator();
+		}
+		return separator;
 	}
 
 	private static void readTitles(DataContainer result, CsvFormat csvFormat, String line) {

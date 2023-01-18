@@ -54,7 +54,7 @@ public class CsvDatasourceDirect extends AbstractCsvDatasource
 
 	@Override
 	protected DataContainer getData() throws NumberFormatException, IOException {
-		return CsvUtils.parseCsv(this.config.source(), this.config.format(), this.config.factor());
+		return CsvUtils.parseCsvDirect(this.config.source(), this.config.format(), this.config.factor());
 	}
 
 }
