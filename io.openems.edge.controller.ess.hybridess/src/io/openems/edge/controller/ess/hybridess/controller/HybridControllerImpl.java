@@ -144,7 +144,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	private void discharge(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws OpenemsNamedException {
 
 		// ConsumptionActivePower has to be defined at this point, as it is checked before calling discharge.
-		int requiredPower = sum.getConsumptionActivePower().get();
+		int requiredPower = sum.getConsumptionActivePower().get() - getTotalProductionPower();
 		double powerSplit = 1;
 		if(requiredPower >= netPowerThreshold*mainEss.getMaxApparentPower().orElse(0)
 			|| !SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES).equals(SoCArea.GREEN)) {
@@ -273,7 +273,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		if(sum.getProductionActivePower().isDefined()) {
 			totalProductionEnergy = sum.getProductionActivePower().get();
 		} else {
-			logInfo(log, "Could not calculate ProductionPower correctly. Capacity Channel undefinded.");
+			logInfo(log, "Could not calculate ProductionPower correctly. Production Channel undefinded.");
 		}
 		return totalProductionEnergy;
 	}
