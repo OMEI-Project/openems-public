@@ -325,10 +325,44 @@ public class HybridControllerTest {
 	}
 
 	@Test
+	public void filterDischargePower() throws Exception {
+		ControllerTest controllerTest = createControllerTest();
+		controllerTest.next(new TestCase() // filterDischargePower#1
+						.input(CONSUMPTION_POWER, 200_000)
+						.input(METER_ACTIVE_POWER, 0)
+						.input(MAIN_CAPACITY, 400_000)
+						.input(SUPPORT_CAPACITY, 276_000)
+						.input(MAIN_SOC, 25) // Orange
+						.input(SUPPORT_SOC, 25)  // Orange
+						.input(MAIN_MAX_APPARENT_POWER_CHANNEL, MAIN_MAX_APPARENT_POWER)
+						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
+						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 20_000)
+						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
+						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
+						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 20_000)
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 100_000))
+				.next(new TestCase()
+						.input(CONSUMPTION_POWER, 100_000)
+						.input(METER_ACTIVE_POWER, 0)
+						.input(MAIN_CAPACITY, 400_000)
+						.input(SUPPORT_CAPACITY, 276_000)
+						.input(MAIN_SOC, 25) // Orange
+						.input(SUPPORT_SOC, 25)  // Orange
+						.input(MAIN_MAX_APPARENT_POWER_CHANNEL, MAIN_MAX_APPARENT_POWER)
+						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 80_000)
+						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
+						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 10_000)
+						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 200_000)
+						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 80_000)
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 20_000));
+	}
+
+
+	@Test
 	public void dischargeSplit() throws Exception {
 		int required_power  = 200_000;
 		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // Both Red
+		controllerTest.next(new TestCase() // dischargeSplit#1
 						.input(CONSUMPTION_POWER, required_power)
 						.input(METER_ACTIVE_POWER, 0)
 						.input(MAIN_CAPACITY, 400_000)
@@ -342,7 +376,7 @@ public class HybridControllerTest {
 						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
 						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 20_000) // power should be limited by filterPower
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 180_000))
-				.next(new TestCase() // Both Red
+				.next(new TestCase() // dischargeSplit#2
 						.input(CONSUMPTION_POWER, required_power)
 						.input(METER_ACTIVE_POWER, 0)
 						.input(MAIN_CAPACITY, 400_000)
@@ -356,13 +390,13 @@ public class HybridControllerTest {
 						.output(MAIN_SET_ACTIVE_POWER_EQUALS, required_power/2) // power should be limited by filterPower
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, required_power/2)
 				)
-				.next(new TestCase() // main red, support orange
+				.next(new TestCase() // dischargeSplit#3
 						.input(CONSUMPTION_POWER, required_power)
 						.input(METER_ACTIVE_POWER, 0)
 						.input(MAIN_CAPACITY, 400_000)
 						.input(SUPPORT_CAPACITY, 276_000)
 						.input(MAIN_SOC, 5)
-						.input(SUPPORT_SOC, 21)
+						.input(SUPPORT_SOC, 25)
 						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0) // targetPower outside limit
 						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
 						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
@@ -370,7 +404,7 @@ public class HybridControllerTest {
 						.output(MAIN_SET_ACTIVE_POWER_EQUALS, (int)(required_power*0.2)) // power should be limited by filterPower
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, (int)(required_power*0.8))
 				)
-				.next(new TestCase() // main red, support green
+				.next(new TestCase() // dischargeSplit#4
 						.input(CONSUMPTION_POWER, required_power)
 						.input(METER_ACTIVE_POWER, 0)
 						.input(MAIN_CAPACITY, 400_000)
@@ -390,7 +424,7 @@ public class HybridControllerTest {
 	public void dischargeNetLoad() throws Exception {
 		int required_power  = 60_000;
 		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase()
+		controllerTest.next(new TestCase() //dischargeNetload#1
 						.input(CONSUMPTION_POWER, required_power)
 						.input(METER_ACTIVE_POWER, 0)
 						.input(MAIN_CAPACITY, 400_000)
