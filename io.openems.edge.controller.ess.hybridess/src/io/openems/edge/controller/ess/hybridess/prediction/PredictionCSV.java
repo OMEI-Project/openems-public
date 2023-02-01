@@ -64,7 +64,7 @@ public class PredictionCSV {
 		private LocalDateTime end;
 		private int value;
 
-		protected Row(LocalDateTime start, LocalDateTime end, int value) {
+		public Row(LocalDateTime start, LocalDateTime end, int value) {
 			this.start = start;
 			this.end = end;
 			this.value = value;

@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
 import io.openems.common.exceptions.InvalidValueException;
+import io.openems.edge.simulator.DataContainer;
 import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -101,7 +102,10 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 
 	// TODO: After this duration ESS become inactive again.
 	private static final long ACTIVITY_TIME_OUT = Long.MAX_VALUE;
-	
+
+	/**
+	 * Flag whether ESS is ready to charge/discharge or if the response time has not yet elapsed.
+	 */
 	private boolean ready;
 
 	private int maxChargePower;
@@ -170,18 +174,9 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			}
 			this.calculateEnergy();
 			this.calculatePossibleChargePower();
-			this.calculatePossibleDischargePower();;
-			
-			if(activePower != 0) {
-				if(activePower > 0) {
-					this.operatingStatus = OperatingStatus.CHARGING;
-					this.calculateChargeTime(activePower);
-				} else {
-					this.operatingStatus = OperatingStatus.DISCHARGING;
-					this.calculateDischargeTime(activePower);
-				}
-				inactivityTimestamp = null;
-			} else {
+			this.calculatePossibleDischargePower();
+
+			if(activePower == 0) {
 				if(inactivityTimestamp == null) {
 					inactivityTimestamp = Instant.now(componentManager.getClock());
 				}
@@ -189,9 +184,15 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 					inactivityTimestamp = null;
 					ready = false;
 				}
+			} else if (activePower < 0) {
+				this.operatingStatus = OperatingStatus.CHARGING;
+				this.calculateChargeTime(activePower);
+				inactivityTimestamp = null;
+			} else {
+				this.operatingStatus = OperatingStatus.DISCHARGING;
+				this.calculateDischargeTime(activePower);
+				inactivityTimestamp = null;
 			}
-			
-			break;
 		}
 	}
 	
@@ -297,7 +298,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	private void calculatePossibleChargePower() {
 		int lowerChargePower = 0;
 		int upperChargePower = 0;
-		if(ready) {
+		if(ready && this.getSoc().orElse(100) != 100) {
 			int currentPower = this.getActivePower().orElse(0);
 
 			// TODO: Assumes to be called every cycle and cycle duration = 1s. ramp rate should be multiplied with time since last calc.
@@ -313,7 +314,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	private void calculatePossibleDischargePower() {
 		int lowerDischargePower = 0;
 		int upperDischargePower = 0;
-		if(ready) {
+		if(ready && this.getSoc().orElse(0) != 0) {
 			int currentPower = this.getActivePower().orElse(0);
 
 			// TODO: Assumes to be called every cycle and cycle duration = 1s. ramp rate should be multiplied with time since last calc.
@@ -327,7 +328,6 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	}
 	
 	private boolean responseTimeElapsed() {
-	
 		return timestampStartup != null && Duration.between(timestampStartup, Instant.now(componentManager.getClock())).toSeconds() >= responseTime;
 	}
 	
@@ -342,29 +342,28 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	}
 
 	private void calculateChargeTime(int power) {
-		if(power < 0) {
+		if(power > 0) {
 			throw new IllegalArgumentException("Power for charging must be negative");
 		}
 		int unusedCapacity = this.getCapacity().orElse(0) - this.getActivePower().orElse(0);
 		unusedCapacity *= 3600; // to Ws
-		long chargeSeconds = unusedCapacity / -power;
+		long chargeSeconds = power < 0 ? unusedCapacity / -power : Long.MAX_VALUE;
 
 		// What to do with it? Write to channel?
 		Duration chargeTime = Duration.of(chargeSeconds, ChronoUnit.SECONDS);
 	}
 
 	private void calculateDischargeTime(int power) {
-		if(power > 0) {
+		if(power < 0) {
 			throw new IllegalArgumentException("Power for charging must be positive");
 		}
 
 		int unusedCapacity = this.getCapacity().orElse(0) - this.getActivePower().orElse(0);
 		unusedCapacity *= 3600; // to Ws
-		long chargeSeconds = unusedCapacity / power;
+		long dischargeSeconds = power > 0 ? unusedCapacity / power : Long.MAX_VALUE;
 
 		// What to do with it? Write to channel?
-		Duration chargeTime = Duration.of(chargeSeconds, ChronoUnit.SECONDS);
-
+		Duration chargeTime = Duration.of(dischargeSeconds, ChronoUnit.SECONDS);
 	}
 	
 	/**
