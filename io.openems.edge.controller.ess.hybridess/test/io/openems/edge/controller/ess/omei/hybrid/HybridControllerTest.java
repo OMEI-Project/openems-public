@@ -467,6 +467,35 @@ public class HybridControllerTest {
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, required_power));
 	}
 
+	@Test
+		public void reassignRemainder() throws Exception {
+			ControllerTest controllerTest = createControllerTest();
+			controllerTest.next(new TestCase() // reassigneRemainder#1 main did not get max; reassign remainder
+							.input(METER_ACTIVE_POWER,0)
+							.input(MAIN_CAPACITY, 400_000)
+							.input(SUPPORT_CAPACITY, 276_000)
+							.input(MAIN_SOC, 10) // red
+							.input(SUPPORT_SOC, 10) //red
+							.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+							.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+							.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -30_000)
+							.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+							.output(MAIN_SET_ACTIVE_POWER_EQUALS, -170_000)
+							.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -30_000))
+					.next(new TestCase()
+							.input(METER_ACTIVE_POWER,0)
+							.input(MAIN_CAPACITY, 400_000)
+							.input(SUPPORT_CAPACITY, 276_000)
+							.input(MAIN_SOC, 80) // green
+							.input(SUPPORT_SOC, 80) // green
+							.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, 0)
+							.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 300_00)
+							.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, 0)
+							.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 40_000)
+							.output(MAIN_SET_ACTIVE_POWER_EQUALS, 160_000)
+							.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 40_000));
+	}
+
 	private ControllerTest createControllerTest() throws Exception {
 		return createControllerTest(DEFAULT_MIN_ENERGY);
 	}

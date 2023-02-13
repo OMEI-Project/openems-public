@@ -189,10 +189,15 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		}
 
 		int mainEssPower = mainEss.filterPower((int) (powerSplit * requiredPower));
-		int liIonPower = supportEss.filterPower(requiredPower - mainEssPower);
+		int supportEssPower = supportEss.filterPower(requiredPower - mainEssPower);
+
+		int remainder = requiredPower - mainEssPower - supportEssPower;
+		if(remainder > 0) {
+			mainEssPower = mainEss.filterPower(mainEssPower + remainder);
+		}
 
 		mainEss.setActivePowerEquals(mainEssPower);
-		supportEss.setActivePowerEquals(liIonPower);
+		supportEss.setActivePowerEquals(supportEssPower);
 
 		mainEss.setReactivePowerEquals(0);
 		supportEss.setReactivePowerEquals(0);
@@ -231,11 +236,16 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 		double powerSplit = chargePowerSplit(mainEss, supportEss);
 
-		int mainPower = mainEss.filterPower((int) (powerSplit*chargePower));
-		int supportPower = supportEss.filterPower(chargePower-mainPower);
+		int mainEssPower = mainEss.filterPower((int) (powerSplit*chargePower));
+		int supportEssPower = supportEss.filterPower(chargePower-mainEssPower);
+		int remainder = chargePower - mainEssPower - supportEssPower;
+
+		if(remainder < 0) {
+			mainEssPower = mainEss.filterPower(mainEssPower + remainder);
+		}
 		
-		mainEss.setActivePowerEquals(mainPower);
-		supportEss.setActivePowerEquals(supportPower);
+		mainEss.setActivePowerEquals(mainEssPower);
+		supportEss.setActivePowerEquals(supportEssPower);
 		
 		mainEss.setReactivePowerEquals(0);
 		supportEss.setReactivePowerEquals(0);

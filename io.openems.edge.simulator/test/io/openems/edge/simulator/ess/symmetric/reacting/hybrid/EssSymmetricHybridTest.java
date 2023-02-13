@@ -35,7 +35,6 @@ public class EssSymmetricHybridTest {
 
 	private static final ChannelAddress ESS_ACTIVE_POWER = new ChannelAddress(ESS_ID,
 			SymmetricEss.ChannelId.ACTIVE_POWER.id());
-	
 	private static final ChannelAddress ESS_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT = new ChannelAddress(ESS_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_CHARGE_POWER_LIMIT.id());
 	private static final ChannelAddress ESS_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT = new ChannelAddress(ESS_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_CHARGE_POWER_LIMIT.id());
 	private static final ChannelAddress ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT = new ChannelAddress(ESS_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
@@ -117,7 +116,15 @@ public class EssSymmetricHybridTest {
 
 	@Test
 	public void chargeLimits() throws Exception {
-		ManagedSymmetricEssHybridTest testEss = setup();
+		ManagedSymmetricEssHybridTest testEss = setup(ESS_ID,
+				CAPACITY,
+				MAX_APPARENT_POWER,
+				15, // ensure red soc area to avoid derating
+				GridMode.ON_GRID,
+				RAMP_RATE,
+				RESPONSE_TIME,
+				CHARGE_POWER,
+				DISCHARGE_POWER);
 		testEss.getSut().filterPower(1); // Begin startup time.
 		testEss.next(new TestCase()
 						.timeleap(clock, RESPONSE_TIME + 1, ChronoUnit.MILLIS)
@@ -171,7 +178,41 @@ public class EssSymmetricHybridTest {
 						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, DISCHARGE_POWER - RAMP_RATE - 10_000)
 						.output(ESS_GET_ALLOWED_DISCHARGE_POWER, DISCHARGE_POWER));
 	}
-	
+
+	@Test
+	public void derating() throws Exception {
+		int rampRate = 20_000;
+		int maxEssPower = 20_000;
+		ManagedSymmetricEssHybridTest testEss = setup(ESS_ID,
+				CAPACITY,
+				MAX_APPARENT_POWER,
+				15, // ensure red soc area to avoid derating
+				GridMode.ON_GRID,
+				rampRate,
+				RESPONSE_TIME,
+				-maxEssPower,
+				maxEssPower);
+		testEss.getSut().filterPower(1); // Begin startup time.
+		testEss.next(new TestCase() // derating#1 RED: charge 1, discharge 0.6
+						.timeleap(clock, RESPONSE_TIME + 1, ChronoUnit.MILLIS)
+						.output(ESS_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -rampRate)
+						.output(ESS_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, (int)(rampRate*0.6))
+						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0))
+				.next(new TestCase() // derating#2 ORANGE: charge 0.8, discharge 0.8);
+						.input(ESS_SOC, 25)
+						.output(ESS_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT,(int)( -rampRate*0.8))
+						.output(ESS_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, (int)(rampRate*0.8))
+						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0))
+				.next(new TestCase() // derating#2 GREEN: charge 0.6, discharge 1);
+						.input(ESS_SOC, 75)
+						.output(ESS_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT,(int)( -rampRate*0.6))
+						.output(ESS_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, (int)(rampRate))
+						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0));
+	}
+
 	@Test
 	public void rampingUp() {
 		// Specify ramping behavior and common timestamp first.

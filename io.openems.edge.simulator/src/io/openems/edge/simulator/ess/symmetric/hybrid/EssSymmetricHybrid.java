@@ -298,12 +298,21 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	private void calculatePossibleChargePower() {
 		int lowerChargePower = 0;
 		int upperChargePower = 0;
-		if(ready && this.getSoc().orElse(100) != 100) {
-			int currentPower = this.getActivePower().orElse(0);
+		double deratingFactor;
+		int deratedPower;
+		int currentPower = this.getActivePower().orElse(0);
+		int soc = this.getSoc().orElse(100);
+		if(ready && soc <= 90) {
 
-			// TODO: Assumes to be called every cycle and cycle duration = 1s. ramp rate should be multiplied with time since last calc.
-			// TODO: Down  Ramp Rate
-			lowerChargePower = Math.min(Math.max(currentPower - rampRate, maxChargePower),0);
+			if (soc > 70) {
+				deratingFactor = 0.6; //Green ]70,90]
+			} else if( soc > 20){
+				deratingFactor = 0.8; // ORANGE ]20,70]
+			} else {
+				deratingFactor = 1;    //RED [0-20]
+			}
+			deratedPower = (int) (maxChargePower*deratingFactor);
+			lowerChargePower = Math.min(Math.max(currentPower - rampRate, deratedPower),0);
 			upperChargePower = Math.min(currentPower + rampRate, 0);
 		}
 		this._setAllowedChargePower(lowerChargePower);
@@ -314,13 +323,22 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	private void calculatePossibleDischargePower() {
 		int lowerDischargePower = 0;
 		int upperDischargePower = 0;
-		if(ready && this.getSoc().orElse(0) != 0) {
-			int currentPower = this.getActivePower().orElse(0);
+		int soc = this.getSoc().orElse(0);
+		int currentPower = this.getActivePower().orElse(0);
+		double deratingFactor;
+		int deratedPower;
+		if(ready && soc >=10) {
+			if (soc > 70) {
+				deratingFactor = 1; //Green ]70,90]
+			} else if( soc > 20){
+				deratingFactor = 0.8; // ORANGE ]20,70]
+			} else {
+				deratingFactor = 0.6;    //RED [0-20]
+			}
 
-			// TODO: Assumes to be called every cycle and cycle duration = 1s. ramp rate should be multiplied with time since last calc.
-			// TODO: Down  Ramp Rate
+			deratedPower = (int)(maxDischargePower*deratingFactor);
 			lowerDischargePower = Math.max(currentPower - rampRate, 0);
-			upperDischargePower = Math.max(Math.min(currentPower + rampRate, maxDischargePower),0);
+			upperDischargePower = Math.max(Math.min(currentPower + rampRate, deratedPower),0);
 		}
 		this._setAllowedDischargePower(upperDischargePower);
 		this._setLowerPossibleDischargePower(lowerDischargePower);
