@@ -114,7 +114,7 @@ public class CsvUtils {
 			values.remove(0);
 		}
 		values.stream()
-				.filter(value -> isNumeric(value) && !value.isEmpty())
+				.filter(value->isNumeric(value) && !value.isEmpty())
 				.map(value -> value.replace(csvFormat.decimalSeparator, "."))
 				.map(value -> Float.parseFloat(value) * factor)
 				.forEach(value->result.addRecord(new Float[] {value}));
