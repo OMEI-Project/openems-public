@@ -28,6 +28,16 @@ public @interface Config {
 	@AttributeDefinition(name = "Response Time [ms]", description = "Time from power requested to first power supplied.")
 	long responseTime() default 0;
 
+	@AttributeDefinition(name = "Inactivity Time [ms]", description = "Time spent inactive (power output/ input = 0W) " +
+			"after which Response Time has to elapse again.")
+	long inactivityTime() default 10_000;
+
+	@AttributeDefinition(name = "Minimum State of Charge [%]")
+	int minimumSoc() default 10;
+
+	@AttributeDefinition(name = "Maximum State of Charge [%]")
+	int maximumSoc() default 90;
+
 	@AttributeDefinition(name = "Initial State of Charge [%]")
 	int initialSoc() default 50;
 
@@ -41,4 +51,5 @@ public @interface Config {
 
 	@AttributeDefinition(name="Allowed Charge Power", description="Maximum amount of power in [W] this ESS can be charged with. Has to be <=0", max = "0")
 	int allowedChargePower();
+
 }

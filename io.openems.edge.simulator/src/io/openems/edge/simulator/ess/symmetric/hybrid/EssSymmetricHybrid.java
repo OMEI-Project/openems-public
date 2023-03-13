@@ -44,7 +44,7 @@ import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
 
 @Designate(ocd = Config.class, factory = true)
-@Component(name = "Simulator.EssSymmetric.Reacting.Omei", //
+@Component(name = "Simulator.EssSymmetric.Hybrid", //
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
@@ -74,11 +74,14 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	 * Maximum amount of power change from last step to current.
 	 */
 	private int rampRate;
+	private int minimumSoc;
+	private int maximumSoc;
 	
 	/**
 	 * Time from power Requested to first power supplied in [s].
 	 */
 	private long responseTime;
+	private long inactivityTime;
 	
 	private Instant timestampStartup;
 	
@@ -111,6 +114,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	private int maxChargePower;
 
 	private int maxDischargePower;
+
+
 	
 	@Reference
 	private Power power;
@@ -142,6 +147,9 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this.energy = (long) ((double) config.capacity() /* [Wh] */ * 3600 /* [Wsec] */ * 1000 /* [Wmsec] */
 				/ 100 * this.config.initialSoc() /* [current SoC] */);
 		this._setSoc(config.initialSoc());
+		this.minimumSoc = config.minimumSoc();
+		this.maximumSoc = config.maximumSoc();
+		this.inactivityTime = Duration.of(config.inactivityTime(), ChronoUnit.MILLIS).toSeconds();
 		this._setMaxApparentPower(config.allowedDischargePower());
 		this.maxChargePower = (-Math.abs(config.allowedChargePower()));
 		this.maxDischargePower = (config.allowedDischargePower());
@@ -302,7 +310,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		int deratedPower;
 		int currentPower = this.getActivePower().orElse(0);
 		int soc = this.getSoc().orElse(100);
-		if(ready && soc <= 90) {
+		if(ready && soc <= maximumSoc) {
 
 			if (soc > 70) {
 				deratingFactor = 0.6; //Green ]70,90]
@@ -327,7 +335,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		int currentPower = this.getActivePower().orElse(0);
 		double deratingFactor;
 		int deratedPower;
-		if(ready && soc >=10) {
+		if(ready && soc >= minimumSoc) {
 			if (soc > 70) {
 				deratingFactor = 1; //Green ]70,90]
 			} else if( soc > 20){
@@ -350,7 +358,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	}
 	
 	private boolean inactivityTimeElapsed() {
-		return Duration.between(inactivityTimestamp, Instant.now(componentManager.getClock())).toSeconds() >= ACTIVITY_TIME_OUT;
+		return Duration.between(inactivityTimestamp, Instant.now(componentManager.getClock())).toSeconds() >= inactivityTime;
 	}
 	
 	private void beginStartTimer() {
