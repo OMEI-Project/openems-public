@@ -159,12 +159,15 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		default:
 			return;
 		}
-		
+
+		int essPower = sum.getConsumptionActivePower().orElse(0)
+				- sum.getProductionActivePower().orElse(0);
+
 		// TODO Handling of different operating status.
-		if(sum.getConsumptionActivePower().orElse(0) > 0) {
-			this.discharge(mainEss, supportEss);
+		if(essPower > 0) {
+			this.discharge(mainEss, supportEss, essPower);
 		} else {
-			this.charge(mainEss, supportEss);
+			this.charge(mainEss, supportEss, essPower);
 		}
 	}
 
@@ -177,10 +180,9 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 * @param supportEss ESS that should cover peak loads.
 	 * @throws OpenemsNamedException on error.
 	 */
-	private void discharge(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws OpenemsNamedException {
+	private void discharge(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss, int requiredPower) throws OpenemsNamedException {
 
 		// ConsumptionActivePower has to be defined at this point, as it is checked before calling discharge.
-		int requiredPower = sum.getConsumptionActivePower().get() - sum.getProductionActivePower().orElse(0);
 		double powerSplit = 1;
 
 		if(requiredPower >= netPowerThreshold*mainEss.getMaxApparentPower().orElse(0)
@@ -211,7 +213,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 * @param supportEss ESS that should cover peak loads.
 	 * @throws OpenemsNamedException on error.
 	 */
-	private void charge(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws OpenemsNamedException {
+	private void charge(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss, int availablePower) throws OpenemsNamedException {
 		int targetGridSetPoint;
 		int minimumStoredEnergy = getTargetStoredEnergy();
 		int totalStoredEnergy = this.getTotalStoredEnergy(mainEss, supportEss);
@@ -232,7 +234,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			targetGridSetPoint = 0;
 		}
 
-		int chargePower = targetGridSetPoint - sum.getProductionActivePower().orElse(0);
+		int chargePower = targetGridSetPoint - availablePower;
 
 		double powerSplit = chargePowerSplit(mainEss, supportEss);
 
