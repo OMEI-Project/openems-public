@@ -497,6 +497,25 @@ public class HybridControllerTest {
 							.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 40_000));
 	}
 
+	@Test
+	public void ProductionGreaterConsumption() throws Exception {
+		ControllerTest controllerTest = createControllerTest();
+		controllerTest.next(new TestCase()
+				.input(METER_ACTIVE_POWER,0)
+				.input(CONSUMPTION_POWER, 200_000)
+				.input(PRODUCTION_POWER, 300_000)
+				.input(MAIN_CAPACITY, 400_000)
+				.input(SUPPORT_CAPACITY, 276_000)
+				.input(MAIN_SOC, 35) // orange
+				.input(SUPPORT_SOC, 35) // orange
+				.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+				.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+				.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+				.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+				.output(MAIN_SET_ACTIVE_POWER_EQUALS, -50_000)
+				.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -50_000));
+	}
+
 	private ControllerTest createControllerTest() throws Exception {
 		return createControllerTest(DEFAULT_MIN_ENERGY);
 	}
