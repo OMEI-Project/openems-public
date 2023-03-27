@@ -12,6 +12,7 @@ import java.util.Optional;
 import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV;
 import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV.Row;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
+import io.openems.edge.meter.api.SymmetricMeter;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -59,8 +60,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 */
 	private final static double[][] DISCHARGE_TABLE =
 			{{0.5, 0.8, 1.0},
-			{0.2, 0.5, 0.7},
-			{0, 0.3, 0.5}};
+			{0.2, 0.7, 0.7},
+			{0, 0.3, 0.7}};
 
 	/**
 	 * Boundary of SoC-Areas for main.
@@ -149,6 +150,16 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		ManagedSymmetricEssHybrid mainEss = componentManager.getComponent(config.mainId());
 		ManagedSymmetricEssHybrid supportEss  = componentManager.getComponent(config.supportId());
 		GridMode gridMode = CalculateGridMode.calculate(Arrays.asList(mainEss.getGridMode(), supportEss.getGridMode()));
+		SoCArea mainSocArea = SoCArea.getSocArea(mainEss, MAIN_SOC_BOUNDARIES);
+		SoCArea supportSocArea = SoCArea.getSocArea(supportEss, SUPPORT_SOC_BOUNDARIES);
+
+		final int consumption = sum.getConsumptionActivePower().orElse(0);
+		final int production = sum.getProductionActivePower().orElse(0);
+		int totalStoredEnergy = this.getTotalStoredEnergy(mainEss, supportEss);
+		int energyPrediction = getEnergyPrediction();
+		int essPower = consumption
+				- production - getPowerPrediction();
+		double powerSplit = 1.0;
 
 		switch(gridMode) {
 		case UNDEFINED:
@@ -157,45 +168,44 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			break;
 		case OFF_GRID:
 		default:
+			throw new IllegalStateException(String.format("Unknown state %s for grid mode of ess.", gridMode));
+		}
+
+
+		if(mainSocArea == SoCArea.RED && supportSocArea == SoCArea.RED
+				|| defaultMinimumEnergy >= totalStoredEnergy) {
+
+			// Use grid to meet demand/ charge the ess as well. In case of depleted ESS or minimum energy not met.
+			essPower = consumption - (production + maxGridPower);
+		} else if (totalStoredEnergy <= energyPrediction) {
+			essPower = calculateGridSetPoint(energyPrediction, totalStoredEnergy,
+						LocalDateTime.now(componentManager.getClock())) - production;
+		} else if (mainSocArea == SoCArea.RED) { // Special cases discharging: one ess in RED
+			conserveRed(supportEss, mainEss, supportSocArea);
+			return;
+		} else if (supportSocArea == SoCArea.RED) {
+			conserveRed(mainEss, supportEss, mainSocArea);
 			return;
 		}
 
-		int essPower = sum.getConsumptionActivePower().orElse(0)
-				- sum.getProductionActivePower().orElse(0);
-
-		// TODO Handling of different operating status.
-		if(essPower > 0) {
-			this.discharge(mainEss, supportEss, essPower);
-		} else {
-			this.charge(mainEss, supportEss, essPower);
-		}
-	}
-
-
-	/**
-	 * Calculates the power required this cycle and a distributes the load between {@code main} and {@code support}
-	 * based on the ESSs SoC and the total power required.
-	 *
-	 * @param mainEss ESS that should cover the netload.
-	 * @param supportEss ESS that should cover peak loads.
-	 * @throws OpenemsNamedException on error.
-	 */
-	private void discharge(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss, int requiredPower) throws OpenemsNamedException {
-
-		// ConsumptionActivePower has to be defined at this point, as it is checked before calling discharge.
-		double powerSplit = 1;
-
-		if(requiredPower >= netPowerThreshold*mainEss.getMaxApparentPower().orElse(0)
-			|| !SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES).equals(SoCArea.GREEN)) {
-			powerSplit = dischargePowerSplit(mainEss, supportEss);
+		if(essPower <= 0) { // charging.
+			powerSplit = chargePowerSplit(mainEss, supportEss);
+		}  else { // Discharging
+			powerSplit = dischargePowerSplit(mainEss, supportEss, essPower);
 		}
 
-		int mainEssPower = mainEss.filterPower((int) (powerSplit * requiredPower));
-		int supportEssPower = supportEss.filterPower(requiredPower - mainEssPower);
+		int mainEssPower = mainEss.filterPower((int) (powerSplit * essPower));
+		int supportEssPower = supportEss.filterPower(essPower - mainEssPower);
 
-		int remainder = requiredPower - mainEssPower - supportEssPower;
-		if(remainder > 0) {
-			mainEssPower = mainEss.filterPower(mainEssPower + remainder);
+		int remainder = essPower - mainEssPower - supportEssPower;
+		mainEssPower = mainEss.filterPower(mainEssPower + remainder);
+
+		if (consumption > maxGridPower + production + mainEssPower + supportEssPower) {
+
+			// TODO Load shedding. Handling of this case. For now just let it happen.
+			logInfo(log,String.format("Consumption of %s W would not be met with a limited grid " +
+					"by a total of %s W supplied from grid, production and ESS. Load shedding required for future.",
+					consumption, maxGridPower + production + mainEssPower + supportEssPower ));
 		}
 
 		mainEss.setActivePowerEquals(mainEssPower);
@@ -205,54 +215,53 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		supportEss.setReactivePowerEquals(0);
 	}
 
-	/**
-	 * Calculated power available for charging of the ess and distributes it across the ESS based on their
-	 * SoC.
-	 *
-	 * @param mainEss ESS that should cover the netload.
-	 * @param supportEss ESS that should cover peak loads.
-	 * @throws OpenemsNamedException on error.
-	 */
-	private void charge(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss, int availablePower) throws OpenemsNamedException {
-		int targetGridSetPoint;
-		int minimumStoredEnergy = getTargetStoredEnergy();
-		int totalStoredEnergy = this.getTotalStoredEnergy(mainEss, supportEss);
-		LocalDateTime now = LocalDateTime.now(componentManager.getClock());
+	private void conserveRed(ManagedSymmetricEssHybrid activeEss, ManagedSymmetricEssHybrid conservedEss, SoCArea activeSocArea)
+			throws OpenemsNamedException {
+		int conservedEssPower = conservedEss.getUpperPossibleDischargePower().orElse(0);
+		int activeEssPower = activeEss.getUpperPossibleDischargePower().orElse(0);
+		int consumption = sum.getConsumptionActivePower().orElse(0);
+		int production = sum.getProductionActivePower().orElse(0);
+		int essPower = consumption
+				- production
+				- maxGridPower;
 
-		if(minimumStoredEnergy >= totalStoredEnergy) {
-			targetGridSetPoint = calculateGridSetPoint(minimumStoredEnergy, totalStoredEnergy, now);
-		} else if (SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES).equals(SoCArea.RED)
-					|| SoCArea.getArea(supportEss, SUPPORT_SOC_BOUNDARIES).equals(SoCArea.RED)) {
-			targetGridSetPoint = -this.maxGridPower;
-		} else {
-			targetGridSetPoint = getPredictedPower();
+		if (essPower <= 0) {
+
+			// Demand can be met by grid + production; Charge Ess with remainder, still supply as much power as possible from other ess
+			activeEssPower = 0;
+			conservedEssPower = essPower;
+		} else if (activeEssPower >= essPower){
+
+			// Demand can be met by grid + production + ess not in red. Do not discharge ess in red.
+			activeEssPower = activeSocArea == SoCArea.GREEN ? consumption - production : essPower;
+			conservedEssPower = 0;
+		} else if (activeEssPower + conservedEssPower >= essPower) {
+
+			// Demand can be met by grid + production + both ess.
+			conservedEssPower = essPower - activeEssPower;
+		} else if (activeEssPower + conservedEssPower < essPower) {
+
+			// In these case some kind of load shedding should happen, as load can not be served by available power sources.
+			logInfo(log,String.format("Consumption of %s W would not be met with a limited grid " +
+							"by a total of %s W supplied from grid, production and ESS. Load shedding required for future.",
+					consumption, maxGridPower + production + activeEssPower + conservedEssPower ));
 		}
-		
-		if(targetGridSetPoint > 0) {
-			logInfo(log, String.format("Ignored power prediction %s during charge at %s",
-					targetGridSetPoint, now));
-			targetGridSetPoint = 0;
+
+		activeEssPower = activeEss.filterPower(activeEssPower);
+		conservedEssPower = conservedEss.filterPower(conservedEssPower);
+
+		int remainder = essPower - activeEssPower - conservedEssPower;
+
+		if( consumption + conservedEssPower < production ) { // if conservedEss & consumption is charged solely on production power, reassign remainder.
+			activeEssPower = activeEss.filterPower(activeEssPower + remainder);
 		}
 
-		int chargePower = targetGridSetPoint - availablePower;
-
-		double powerSplit = chargePowerSplit(mainEss, supportEss);
-
-		int mainEssPower = mainEss.filterPower((int) (powerSplit*chargePower));
-		int supportEssPower = supportEss.filterPower(chargePower-mainEssPower);
-		int remainder = chargePower - mainEssPower - supportEssPower;
-
-		if(remainder < 0) {
-			mainEssPower = mainEss.filterPower(mainEssPower + remainder);
-		}
-		
-		mainEss.setActivePowerEquals(mainEssPower);
-		supportEss.setActivePowerEquals(supportEssPower);
-		
-		mainEss.setReactivePowerEquals(0);
-		supportEss.setReactivePowerEquals(0);
+		conservedEss.setActivePowerEquals(conservedEssPower);
+		activeEss.setActivePowerEquals(activeEssPower);
+		conservedEss.setReactivePowerEquals(0);
+		activeEss.setReactivePowerEquals(0);
 	}
-	
+
 	/**
 	 * Determines amount of power that should be feed into or sold to grid, based on predicted supply and demand
 	 * and current Energy Prices.
@@ -279,14 +288,14 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 *
 	 * @return Target amount of energy that should be stored.
 	 */
-	private int getTargetStoredEnergy() {
+	private int getEnergyPrediction() {
 		if(lastEnergyPrediction == null
 				|| lastEnergyPrediction.getEnd().isBefore(LocalDateTime.now(componentManager.getClock()))) {
 			Optional<Row> prediction = getPrediction(energyPredictionFile);
 			lastEnergyPrediction = prediction.orElse(null);
 		}
 
-		return lastEnergyPrediction == null ? defaultMinimumEnergy : lastEnergyPrediction.getValue();
+		return lastEnergyPrediction == null ? 0 : lastEnergyPrediction.getValue();
 	}
 
 	/**
@@ -295,7 +304,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 *
 	 * @return Amount of power that should be drawn from grid based on prediction. If no prediction exist 0.
 	 */
-	private int getPredictedPower() {
+	private int getPowerPrediction() {
 		if(lastPowerPrediction == null
 				|| lastPowerPrediction.getEnd().isBefore(LocalDateTime.now(componentManager.getClock()))) {
 			Optional<Row> prediction = getPrediction(powerPredictionFile);
@@ -317,17 +326,20 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	private double chargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
 		double powerSplit;
-		SoCArea mainEssArea = SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES);
-		SoCArea supportEssArea = SoCArea.getArea(supportEss, SUPPORT_SOC_BOUNDARIES);
+		SoCArea mainEssArea = SoCArea.getSocArea(mainEss, MAIN_SOC_BOUNDARIES);
+		SoCArea supportEssArea = SoCArea.getSocArea(supportEss, SUPPORT_SOC_BOUNDARIES);
 		powerSplit = getPowerSplitCharging(mainEssArea, supportEssArea);
 		return powerSplit;
 	}
 
-	private double dischargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
-		double powerSplit;
-		SoCArea mainEssArea = SoCArea.getArea(mainEss, MAIN_SOC_BOUNDARIES);
-		SoCArea supportEssArea = SoCArea.getArea(supportEss, SUPPORT_SOC_BOUNDARIES);
-		powerSplit = getPowerSplitDischarging(mainEssArea, supportEssArea);
+	private double dischargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss, int essPower) throws InvalidValueException {
+		double powerSplit = 1;
+		SoCArea mainEssArea = SoCArea.getSocArea(mainEss, MAIN_SOC_BOUNDARIES);
+		SoCArea supportEssArea = SoCArea.getSocArea(supportEss, SUPPORT_SOC_BOUNDARIES);
+		if(essPower >= netPowerThreshold*mainEss.getMaxApparentPower().orElse(0)
+				|| !SoCArea.getSocArea(mainEss, MAIN_SOC_BOUNDARIES).equals(SoCArea.GREEN)) {
+			powerSplit = getPowerSplitDischarging(mainEssArea, supportEssArea);
+		}
 		return powerSplit;
 	}
 
@@ -349,7 +361,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 * @return Power in [W] needed to reach {@code energyRequirement} in time {@code duration}.
 	 */
 	private int powerFromEnergy(double energyRequirement, Duration duration) {
-		if(duration.isNegative() || duration.isZero()) {
+		if(duration == null || duration.isNegative() || duration.isZero()) {
 			return Integer.MAX_VALUE;
 		}
 		return (int)((energyRequirement * 3600.0) / duration.toSeconds());
@@ -360,7 +372,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		ORANGE,
 		GREEN;
 
-		private static SoCArea getArea(ManagedSymmetricEss ess, int[] boundaries) throws InvalidValueException {
+		private static SoCArea getSocArea(ManagedSymmetricEss ess, int[] boundaries) throws InvalidValueException {
 			SoCArea SoCArea;
 			int soc = ess.getSoc().getOrError();
 			int storedEnergy = ess.getCapacity().getOrError() * (ess.getSoc().getOrError()) / 100;
