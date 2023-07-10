@@ -12,7 +12,6 @@ import java.util.Optional;
 import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV;
 import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV.Row;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.meter.api.SymmetricMeter;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -79,8 +78,9 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 */
 	private final static int[] SUPPORT_SOC_BOUNDARIES = {20, 50};
 	private final Logger log = LoggerFactory.getLogger(HybridControllerImpl.class);
-		
-	private Config config = null;
+
+	private String mainId;
+	private String supportId;
 
 	private File energyPredictionFile;
 	private File powerPredictionFile;
@@ -113,6 +113,19 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	@Reference 
 	private Sum sum;
 
+	public HybridControllerImpl(String energyPrediction, String powerPrediction,
+								int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
+								Sum sum, ComponentManager componentManager){
+		super(//
+				OpenemsComponent.ChannelId.values(), //
+				Controller.ChannelId.values(), //
+				HybridController.ChannelId.values() //
+		);
+		this.sum = sum;
+		this.componentManager = componentManager;
+		internalActivate(energyPrediction, powerPrediction, defaultMinimumEnergy, maxGridPower, mainId, supportId);
+	}
+
 	public HybridControllerImpl(){
 		super(//
 				OpenemsComponent.ChannelId.values(), //
@@ -121,22 +134,28 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 	}
 
-	@Activate
-	void activate(ComponentContext context, Config config) throws OpenemsNamedException {
-		super.activate(context, config.id(), config.alias(), config.enabled());
-		this.config = config;
-		this.energyPredictionFile = Path.of(config.energyPrediction()).toFile();
-		this.powerPredictionFile = Path.of(config.powerPrediction()).toFile();
-		this.defaultMinimumEnergy = config.defaultMinimumEnergy();
-		this.maxGridPower = config.maxGridPower();
+	private void internalActivate(String energyPrediction, String powerPrediction,
+							 int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId) {
+		this.energyPredictionFile = Path.of(energyPrediction).toFile();
+		this.powerPredictionFile = Path.of(powerPrediction).toFile();
+		this.defaultMinimumEnergy = defaultMinimumEnergy;
+		this.maxGridPower = maxGridPower;
+		this.mainId = mainId;
+		this.supportId=supportId;
 
 		if(!Files.exists(energyPredictionFile.toPath())) {
 			this.logInfo(log, String.format("Energy prediction at %s not found", energyPredictionFile.toPath()));
 		}
-		
+
 		if(!Files.exists(powerPredictionFile.toPath())) {
 			this.logInfo(log, String.format("Power prediction at %s not found", powerPredictionFile.toPath()));
 		}
+	}
+	@Activate
+	void activate(ComponentContext context, Config config) throws OpenemsNamedException {
+		super.activate(context, config.id(), config.alias(), config.enabled());
+		internalActivate(config.energyPrediction(), config.powerPrediction(), config.defaultMinimumEnergy(),
+				config.maxGridPower(), config.mainId(), config.supportId());
 	}
 
 	@Deactivate
@@ -147,11 +166,11 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	@Override
 	public void run() throws OpenemsNamedException {
-		ManagedSymmetricEssHybrid mainEss = componentManager.getComponent(config.mainId());
-		ManagedSymmetricEssHybrid supportEss  = componentManager.getComponent(config.supportId());
+		ManagedSymmetricEssHybrid mainEss = componentManager.getComponent(mainId);
+		ManagedSymmetricEssHybrid supportEss  = componentManager.getComponent(supportId);
 		GridMode gridMode = CalculateGridMode.calculate(Arrays.asList(mainEss.getGridMode(), supportEss.getGridMode()));
 		SoCArea mainSocArea = SoCArea.getSocArea(mainEss, MAIN_SOC_BOUNDARIES);
-		SoCArea supportSocArea = SoCArea.getSocArea(supportEss, SUPPORT_SOC_BOUNDARIES);
+		SoCArea supportSocArea = SoCArea.getSocArea(supportEss, SUPPORT_SOC_BOUNDARIES);;
 
 		final int consumption = sum.getConsumptionActivePower().orElse(0);
 		final int production = sum.getProductionActivePower().orElse(0);
@@ -160,7 +179,6 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		int essPower = consumption
 				- production - getPowerPrediction();
 		double powerSplit = 1.0;
-
 		switch(gridMode) {
 		case UNDEFINED:
 			this.logWarn(this.log, "Grid-Mode is [UNDEFINED]");
@@ -171,7 +189,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			throw new IllegalStateException(String.format("Unknown state %s for grid mode of ess.", gridMode));
 		}
 
-
+		// Energy deficiency mode
 		if(mainSocArea == SoCArea.RED && supportSocArea == SoCArea.RED
 				|| defaultMinimumEnergy >= totalStoredEnergy) {
 
@@ -193,7 +211,6 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		}  else { // Discharging
 			powerSplit = dischargePowerSplit(mainEss, supportEss, essPower);
 		}
-
 		int mainEssPower = mainEss.filterPower((int) (powerSplit * essPower));
 		int supportEssPower = supportEss.filterPower(essPower - mainEssPower);
 
@@ -207,10 +224,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 					"by a total of %s W supplied from grid, production and ESS. Load shedding required for future.",
 					consumption, maxGridPower + production + mainEssPower + supportEssPower ));
 		}
-
 		mainEss.setActivePowerEquals(mainEssPower);
 		supportEss.setActivePowerEquals(supportEssPower);
-
 		mainEss.setReactivePowerEquals(0);
 		supportEss.setReactivePowerEquals(0);
 	}
@@ -336,7 +351,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		double powerSplit = 1;
 		SoCArea mainEssArea = SoCArea.getSocArea(mainEss, MAIN_SOC_BOUNDARIES);
 		SoCArea supportEssArea = SoCArea.getSocArea(supportEss, SUPPORT_SOC_BOUNDARIES);
-		if(essPower >= netPowerThreshold*mainEss.getMaxApparentPower().orElse(0)
+		if(essPower >= netPowerThreshold*mainEss.getMaxApparentPower().orElse(0) // should be derated power as well...
 				|| !SoCArea.getSocArea(mainEss, MAIN_SOC_BOUNDARIES).equals(SoCArea.GREEN)) {
 			powerSplit = getPowerSplitDischarging(mainEssArea, supportEssArea);
 		}
@@ -385,5 +400,13 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			}
 			return SoCArea;
 		}
+	}
+
+	public Sum _debugGetSum(){
+		return sum;
+	}
+
+	public ComponentManager _debugGetComponentManager(){
+		return componentManager;
 	}
 }
