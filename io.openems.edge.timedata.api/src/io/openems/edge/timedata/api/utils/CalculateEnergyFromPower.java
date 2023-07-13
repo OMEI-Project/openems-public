@@ -3,6 +3,8 @@ package io.openems.edge.timedata.api.utils;
 import java.time.Duration;
 import java.time.Instant;
 
+import io.openems.edge.common.component.ComponentManager;
+import io.openems.edge.common.test.DummyComponentManager;
 import org.osgi.service.event.EventHandler;
 
 import io.openems.common.types.ChannelAddress;
@@ -102,9 +104,18 @@ public class CalculateEnergyFromPower {
 	 */
 	private Integer lastPower = null;
 
+	private final ComponentManager componentManager;
+
 	public CalculateEnergyFromPower(TimedataProvider component, ChannelId channelId) {
 		this.component = component;
 		this.channelId = channelId;
+		componentManager = new DummyComponentManager();
+	}
+
+	public CalculateEnergyFromPower(TimedataProvider component, ComponentManager componentManager, ChannelId channelId) {
+		this.component = component;
+		this.channelId = channelId;
+		this.componentManager = componentManager;
 	}
 
 	/**
@@ -128,7 +139,7 @@ public class CalculateEnergyFromPower {
 		}
 
 		// keep last data for next run
-		this.lastTimestamp = Instant.now();
+		this.lastTimestamp = Instant.now(componentManager.getClock());
 		this.lastPower = power;
 	}
 
@@ -173,7 +184,7 @@ public class CalculateEnergyFromPower {
 
 		} else {
 			// calculate duration since last value
-			var duration /* [msec] */ = Duration.between(this.lastTimestamp, Instant.now()).toMillis();
+			var duration /* [msec] */ = Duration.between(this.lastTimestamp, Instant.now(componentManager.getClock())).toMillis();
 
 			// calculate energy since last run in [Wmsec]
 			var continuousEnergy /* [Wmsec] */ = this.lastPower /* [W] */ * duration /* [msec] */;

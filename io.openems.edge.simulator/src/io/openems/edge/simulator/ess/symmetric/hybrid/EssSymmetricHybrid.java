@@ -5,9 +5,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
-import io.openems.common.exceptions.InvalidValueException;
-import io.openems.edge.simulator.DataContainer;
-import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -96,15 +93,15 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	
 	private Instant lastTimestamp = null;
 
-	private final CalculateEnergyFromPower calculateChargeEnergy = new CalculateEnergyFromPower(this,
+	@Reference
+	protected ComponentManager componentManager;
+
+	private CalculateEnergyFromPower calculateChargeEnergy = new CalculateEnergyFromPower(this,
 			SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY);
-	private final CalculateEnergyFromPower calculateDischargeEnergy = new CalculateEnergyFromPower(this,
+	private CalculateEnergyFromPower calculateDischargeEnergy = new CalculateEnergyFromPower(this,
 			SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY);
 	
 	private final static int POWER_PRECISION = 1;
-
-	// TODO: After this duration ESS become inactive again.
-	private static final long ACTIVITY_TIME_OUT = Long.MAX_VALUE;
 
 	/**
 	 * Flag whether ESS is ready to charge/discharge or if the response time has not yet elapsed.
@@ -115,16 +112,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 
 	private int maxDischargePower;
 
-
-	
 	@Reference
 	private Power power;
-
-	@Reference
-	protected ConfigurationAdmin cm;
-
-	@Reference
-	protected ComponentManager componentManager;
 
 	@Reference(policy = ReferencePolicy.DYNAMIC, policyOption = ReferencePolicyOption.GREEDY, cardinality = ReferenceCardinality.OPTIONAL)
 	private volatile Timedata timedata = null;
@@ -209,7 +198,6 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	 */
 	@Override
 	public void applyPower(int activePower, int reactivePower) throws OpenemsNamedException {
-		
 		/*
 		 * calculate State of charge
 		 */
@@ -407,11 +395,9 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			this.calculateChargeEnergy.update(null);
 			this.calculateDischargeEnergy.update(null);
 		} else if (activePower > 0) {
-			// Buy-From-Grid
 			this.calculateChargeEnergy.update(0);
 			this.calculateDischargeEnergy.update(activePower);
 		} else {
-			// Sell-To-Grid
 			this.calculateChargeEnergy.update(activePower * -1);
 			this.calculateDischargeEnergy.update(0);
 		}
@@ -444,5 +430,20 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			}
 		}
 		return soc;
+	}
+
+	public void _pythonBrideSetComponentManager(ComponentManager componentManager) {
+		this.componentManager = componentManager;
+		calculateChargeEnergy = new CalculateEnergyFromPower(this,
+				componentManager,
+				SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY);
+
+		calculateDischargeEnergy = new CalculateEnergyFromPower(this,
+				componentManager,
+				SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY);
+	}
+
+	public void _pyhtonBridgeSetPower(Power power) {
+		this.power = power;
 	}
 }

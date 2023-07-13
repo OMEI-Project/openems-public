@@ -14,8 +14,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private GridMode gridMode = null;
 		private int rampRate = 0;
 		private int responseTime = 0;
+		private int inactivityTime = 0;
 		private int allowedDischargePower = 0;
 		private int allowedChargePower = 0;
+		private int maximumSoc = 90;
+		private int minimumSoc = 10;
 
 		private Builder() {
 
@@ -115,6 +118,21 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	@Override
 	public int allowedChargePower() {
 		return this.builder.allowedChargePower;
+	}
+
+	@Override
+	public long inactivityTime() {
+		return this.builder.inactivityTime;
+	}
+
+	@Override
+	public int minimumSoc() {
+		return this.builder.minimumSoc;
+	}
+
+	@Override
+	public int maximumSoc() {
+		return this.builder.maximumSoc;
 	}
 
 }

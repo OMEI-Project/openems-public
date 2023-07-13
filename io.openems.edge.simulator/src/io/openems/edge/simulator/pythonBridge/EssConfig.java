@@ -5,26 +5,27 @@ import io.openems.edge.simulator.ess.symmetric.hybrid.Config;
 
 import java.lang.annotation.Annotation;
 
-public class ControllerConfig implements Config {
+public class EssConfig implements Config {
 
-    private String id;
+    private final String id;
     private String alias;
-    private boolean enabled;
-    private int capacity;
-    private int rampRate;
-    private long responseTime;
-    private long inactivityTime;
-    private int minimumSoC;
-    private int maximumSoC;
-    private int initialSoC;
-    private int allowedDischargePower;
-    private int allowedChargePower;
+    private final boolean enabled;
+    private final int capacity;
+    private final int rampRate;
+    private final long responseTime;
+    private final long inactivityTime;
+    private final int minimumSoC;
+    private final int maximumSoC;
+    private final int initialSoC;
+    private final int allowedDischargePower;
+    private final int allowedChargePower;
 
-    public ControllerConfig(String id, String alias, boolean enabled, int capacity, int rampRate,
-                            long responseTime, long inactivityTime,
-                            int minimumSoC, int maximumSoC, int initialSoC,
-                            int allowedDischargePower, int allowedChargePower) {
+    public EssConfig(String id, String alias, boolean enabled, int capacity, int rampRate,
+                     long responseTime, long inactivityTime,
+                     int minimumSoC, int maximumSoC, int initialSoC,
+                     int allowedDischargePower, int allowedChargePower) {
         this.id = id;
+        this.alias = alias;
         this.enabled = enabled;
         this.capacity = capacity;
         this.rampRate = rampRate;
