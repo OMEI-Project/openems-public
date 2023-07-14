@@ -1,13 +1,14 @@
-package io.openems.edge.ess.api;
+package io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
 
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.value.Value;
+import io.openems.edge.ess.api.ManagedSymmetricEss;
 
 public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
-	
+
 	enum ChannelId implements io.openems.edge.common.channel.ChannelId {
 		
 		// TODO Naming scheme might be misleading. Charging the upperlimit actually results in less power charged.
@@ -124,4 +125,6 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 	default IntegerReadChannel getLowerPossibleDischargePowerChannel() {
 		return channel(ChannelId.LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT);
 	}
+
+	public SocState getSocState();
 }

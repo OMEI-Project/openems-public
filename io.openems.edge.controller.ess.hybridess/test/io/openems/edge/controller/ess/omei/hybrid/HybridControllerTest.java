@@ -1,5 +1,6 @@
 package io.openems.edge.controller.ess.omei.hybrid;
 
+import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.ChannelAddress;
 import io.openems.edge.common.sum.DummySum;
 import io.openems.edge.common.sum.Sum;
@@ -9,7 +10,7 @@ import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV;
 import io.openems.edge.controller.ess.hybridess.controller.HybridControllerImpl;
 import io.openems.edge.controller.test.ControllerTest;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.ManagedSymmetricEssHybrid;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.test.DummyPower;
 import io.openems.edge.meter.api.SymmetricMeter;
@@ -740,6 +741,27 @@ public class HybridControllerTest {
 						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0));
 	}
 
+	@Test
+	public void redChargeInterval() throws Exception {
+		ControllerTest controllerTest = new ControllerTest(new HybridControllerImpl()) //
+				.addReference("componentManager", new DummyComponentManager(clock))
+				.addReference("sum", new DummySum())
+				.addComponent(setupESS(MAIN_ID, MAIN_MAX_APPARENT_POWER, new int[] {20,70}, new int[]{25,70}))
+				.addComponent(setupESS(SUPPORT_ID, SUPPORT_MAX_APPARENT_POWER, new int[] {20, 50}, new int[]{25, 50}))//
+				.addComponent(new DummySymmetricMeter(METER_ID)) //
+				.activate(MyConfig.create()
+						.setId(CTRL_ID)
+						.setMainId(MAIN_ID)
+						.setSupportId(SUPPORT_ID)//
+						.setMeterId(METER_ID)
+						.setEnergyPrediction(energyPrediction.toString())
+						.setPowerPrediction(powerPrediction.toString())
+						.setMaxGridPower(MAX_GRID_POWER)
+						.setDefaultMinimumEnergy(DEFAULT_MIN_ENERGY)
+						.build());
+
+	}
+
 	private ControllerTest createControllerTest() throws Exception {
 		return createControllerTest(DEFAULT_MIN_ENERGY);
 	}
@@ -770,6 +792,11 @@ public class HybridControllerTest {
 
 	private static ManagedSymmetricEssHybrid setupESS(String id, int maxApparentPower) {
 		return new DummyHybridEss(id, new DummyPower(maxApparentPower));
+	}
+
+	private static ManagedSymmetricEssHybrid setupESS(String id, int maxApparentPower,
+													  int[] lowerSocBorder, int[] upperSocBorder) {
+		return new DummyHybridEss(id, new DummyPower(maxApparentPower), lowerSocBorder, upperSocBorder);
 	}
 
 	private void addPrediction(String start, String end, int value, Path filepath) throws IOException {

@@ -5,6 +5,8 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 import io.openems.edge.common.sum.GridMode;
 
+import java.util.Locale;
+
 @ObjectClassDefinition(//
 		name = "Simulator EssSymmetric Reacting OMEI", //
 		description = "This simulates a 'reacting' symmetric Energy Storage System.")
@@ -51,5 +53,10 @@ public @interface Config {
 
 	@AttributeDefinition(name="Allowed Charge Power", description="Maximum amount of power in [W] this ESS can be charged with. Has to be <=0", max = "0")
 	int allowedChargePower();
+	
+	@AttributeDefinition(name = "Upper SoC Border", description ="Denotes SoC at which the battery will change to higher SoCState")
+	int[] higherSocBorder() default {25,50};
 
+	@AttributeDefinition(name = "Lower SoC Border", description ="Denotes SoC at which the battery will change to lower SoCState")
+	int[] lowerSocBorder()  default {20,50};
 }

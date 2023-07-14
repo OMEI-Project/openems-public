@@ -8,6 +8,12 @@ import io.openems.edge.simulator.ess.symmetric.hybrid.Config;
 public class MyConfig extends AbstractComponentConfig implements Config {
 
 	protected static class Builder {
+		private int[] higherSocBorder;
+		private int[] lowerSocBorder;
+		private int minimumSoc;
+		private int maximumSoc;
+
+		private long inactivityTime;
 		private String id = null;
 		private Integer capacity = null;
 		private Integer initialSoc = null;
@@ -53,7 +59,12 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			this.responseTime = responseTime;
 			return this;
 		}
-		
+
+		public Builder setInactivityTime(long inactivityTime) {
+			this.inactivityTime = inactivityTime;
+			return this;
+		}
+
 		public Builder setAllowedChargePower(int chargePower) {
 			this.allowedChargePower = chargePower;
 			return this;
@@ -111,16 +122,6 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
-	public int allowedDischargePower() {
-		return this.builder.allowedDischargePower;
-	}
-
-	@Override
-	public int allowedChargePower() {
-		return this.builder.allowedChargePower;
-	}
-
-	@Override
 	public long inactivityTime() {
 		return this.builder.inactivityTime;
 	}
@@ -133,6 +134,26 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	@Override
 	public int maximumSoc() {
 		return this.builder.maximumSoc;
+	}
+
+	@Override
+	public int allowedDischargePower() {
+		return this.builder.allowedDischargePower;
+	}
+
+	@Override
+	public int allowedChargePower() {
+		return this.builder.allowedChargePower;
+	}
+
+	@Override
+	public int[] higherSocBorder() {
+		return this.builder.higherSocBorder;
+	}
+
+	@Override
+	public int[] lowerSocBorder() {
+		return this.builder.lowerSocBorder;
 	}
 
 }
