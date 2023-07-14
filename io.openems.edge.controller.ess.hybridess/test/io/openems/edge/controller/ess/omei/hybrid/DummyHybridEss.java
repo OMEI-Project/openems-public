@@ -6,7 +6,9 @@ import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.SoCStateMachine;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.SocState;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.ess.test.DummyManagedSymmetricEss;
@@ -16,6 +18,8 @@ public class DummyHybridEss extends AbstractOpenemsComponent
 implements ManagedSymmetricEssHybrid, ManagedSymmetricEss, SymmetricEss, OpenemsComponent {
 
 	private final Power power;
+
+	private SoCStateMachine soCStateMachine;
 	private String id;
 	private final int powerPrecision = 1;
 
@@ -34,6 +38,7 @@ implements ManagedSymmetricEssHybrid, ManagedSymmetricEss, SymmetricEss, Openems
 			channel.nextProcessImage();
 		}
 		super.activate(null, id, "", true);
+		soCStateMachine = new SoCStateMachine(new int[]{20,50}, new int[]{20,50});
 	}
 	
 	public DummyHybridEss(String id, Power power) {
@@ -43,6 +48,16 @@ implements ManagedSymmetricEssHybrid, ManagedSymmetricEss, SymmetricEss, Openems
 				ManagedSymmetricEss.ChannelId.values(), //
 				SymmetricEss.ChannelId.values() //
 		);
+	}
+
+	public DummyHybridEss(String id, DummyPower dummyPower, int[] lowerSocBorder, int[] upperSocBorder) {
+		this(id, dummyPower, //
+				OpenemsComponent.ChannelId.values(), //
+				ManagedSymmetricEssHybrid.ChannelId.values(),
+				ManagedSymmetricEss.ChannelId.values(), //
+				SymmetricEss.ChannelId.values() //
+		);
+		soCStateMachine = new SoCStateMachine(lowerSocBorder, upperSocBorder);
 	}
 
 
@@ -112,6 +127,12 @@ implements ManagedSymmetricEssHybrid, ManagedSymmetricEss, SymmetricEss, Openems
 		}
 
 		return filteredPower;
+	}
+
+	@Override
+	public SocState getSocState() {
+		soCStateMachine.calculateSoCState(this.getSoc().orElse(0));
+		return soCStateMachine.getSoCState();
 	}
 
 	private void beginStartTimer() {

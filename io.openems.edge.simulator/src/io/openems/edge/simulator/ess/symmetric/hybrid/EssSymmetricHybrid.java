@@ -1,27 +1,5 @@
 package io.openems.edge.simulator.ess.symmetric.hybrid;
 
-import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-
-import io.openems.common.exceptions.InvalidValueException;
-import io.openems.edge.simulator.DataContainer;
-import org.osgi.service.cm.ConfigurationAdmin;
-import org.osgi.service.component.ComponentContext;
-import org.osgi.service.component.annotations.Activate;
-import org.osgi.service.component.annotations.Component;
-import org.osgi.service.component.annotations.ConfigurationPolicy;
-import org.osgi.service.component.annotations.Deactivate;
-import org.osgi.service.component.annotations.Reference;
-import org.osgi.service.component.annotations.ReferenceCardinality;
-import org.osgi.service.component.annotations.ReferencePolicy;
-import org.osgi.service.component.annotations.ReferencePolicyOption;
-import org.osgi.service.event.Event;
-import org.osgi.service.event.EventHandler;
-import org.osgi.service.event.propertytypes.EventTopics;
-import org.osgi.service.metatype.annotations.Designate;
-
 import io.openems.common.channel.AccessMode;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.edge.common.channel.Doc;
@@ -35,13 +13,27 @@ import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.SocState;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.SoCStateMachine;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.simulator.ess.symmetric.reacting.EssSymmetric;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
+import org.osgi.service.cm.ConfigurationAdmin;
+import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.*;
+import org.osgi.service.event.Event;
+import org.osgi.service.event.EventHandler;
+import org.osgi.service.event.propertytypes.EventTopics;
+import org.osgi.service.metatype.annotations.Designate;
+
+import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @Designate(ocd = Config.class, factory = true)
 @Component(name = "Simulator.EssSymmetric.Hybrid", //
@@ -115,7 +107,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 
 	private int maxDischargePower;
 
-
+	private SoCStateMachine soCStateMachine;
 	
 	@Reference
 	private Power power;
@@ -158,6 +150,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this.rampRate = config.rampRate();
 		this.responseTime = Duration.of(config.responseTime(), ChronoUnit.MILLIS).toSeconds();
 		this.ready = responseTime == 0;
+		soCStateMachine = new SoCStateMachine(config.lowerSocBorder(), config.higherSocBorder());
 	}
 	
 	@Override
@@ -181,6 +174,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 				inactivityTimestamp = null;
 			}
 			this.calculateEnergy();
+			this.soCStateMachine.calculateSoCState(this.getSoc().orElse(0));
 			this.calculatePossibleChargePower();
 			this.calculatePossibleDischargePower();
 
@@ -351,6 +345,10 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this._setAllowedDischargePower(upperDischargePower);
 		this._setLowerPossibleDischargePower(lowerDischargePower);
 		this._setUpperPossibleDischargePower(upperDischargePower);
+	}
+
+	public SocState getSocState(){
+		return soCStateMachine.getSoCState();
 	}
 	
 	private boolean responseTimeElapsed() {
