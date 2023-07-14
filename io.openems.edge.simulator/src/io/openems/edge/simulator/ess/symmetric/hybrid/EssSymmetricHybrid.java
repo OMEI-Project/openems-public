@@ -32,28 +32,17 @@ import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.ManagedSymmetricEssHybrid;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.SocState;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.SoCStateMachine;
 import io.openems.edge.ess.api.SymmetricEss;
+import io.openems.edge.ess.api.managedsymmetricesshybrid.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.managedsymmetricesshybrid.SoCStateMachine;
+import io.openems.edge.ess.api.managedsymmetricesshybrid.SocState;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.simulator.ess.symmetric.reacting.EssSymmetric;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
-import org.osgi.service.cm.ConfigurationAdmin;
-import org.osgi.service.component.ComponentContext;
-import org.osgi.service.component.annotations.*;
-import org.osgi.service.event.Event;
-import org.osgi.service.event.EventHandler;
-import org.osgi.service.event.propertytypes.EventTopics;
-import org.osgi.service.metatype.annotations.Designate;
 
-import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-
+@SuppressWarnings("restriction")
 @Designate(ocd = Config.class, factory = true)
 @Component(name = "Simulator.EssSymmetric.Hybrid", //
 		immediate = true, //

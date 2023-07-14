@@ -1,4 +1,4 @@
-package io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+package io.openems.edge.ess.api.managedsymmetricesshybrid;
 
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
@@ -6,6 +6,8 @@ import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.value.Value;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
+import io.openems.edge.ess.api.managedsymmetricesshybrid.ManagedSymmetricEssHybrid.ChannelId;
+import io.openems.edge.ess.api.managedsymmetricesshybrid.SocState;
 
 public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 

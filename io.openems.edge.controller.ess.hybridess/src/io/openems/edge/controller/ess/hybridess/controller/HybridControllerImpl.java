@@ -11,8 +11,7 @@ import java.util.Optional;
 
 import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV;
 import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV.Row;
-import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.SocState;
+
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -32,7 +31,8 @@ import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.sum.Sum;
 import io.openems.edge.controller.api.Controller;
 import io.openems.edge.ess.api.CalculateGridMode;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.managedsymmetricesshybrid.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.managedsymmetricesshybrid.SocState;
 
 
 @Designate(ocd = Config.class, factory = true)

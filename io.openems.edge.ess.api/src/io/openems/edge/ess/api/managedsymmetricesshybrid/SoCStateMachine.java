@@ -1,6 +1,7 @@
-package io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+package io.openems.edge.ess.api.managedsymmetricesshybrid;
 
-import static io.openems.edge.ess.api.ManagedSymmetricEssHybrid.SocState.*;
+import static io.openems.edge.ess.api.managedsymmetricesshybrid.SocState.*;
+
 
 public class SoCStateMachine {
 

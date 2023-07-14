@@ -10,10 +10,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	protected static class Builder {
 		private int[] higherSocBorder;
 		private int[] lowerSocBorder;
-		private int minimumSoc;
-		private int maximumSoc;
 
-		private long inactivityTime;
 		private String id = null;
 		private Integer capacity = null;
 		private Integer initialSoc = null;
@@ -60,7 +57,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
-		public Builder setInactivityTime(long inactivityTime) {
+		public Builder setInactivityTime(int inactivityTime) {
 			this.inactivityTime = inactivityTime;
 			return this;
 		}

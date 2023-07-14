@@ -20,10 +20,14 @@ public class EssConfig implements Config {
     private final int allowedDischargePower;
     private final int allowedChargePower;
 
+    private final int[] lowerSocBorder;
+    private final int[] higherSocBorder;
+
     public EssConfig(String id, String alias, boolean enabled, int capacity, int rampRate,
                      long responseTime, long inactivityTime,
                      int minimumSoC, int maximumSoC, int initialSoC,
-                     int allowedDischargePower, int allowedChargePower) {
+                     int allowedDischargePower, int allowedChargePower,
+                     int[] lowerSocBorder, int[] higherSocBorder) {
         this.id = id;
         this.alias = alias;
         this.enabled = enabled;
@@ -36,6 +40,8 @@ public class EssConfig implements Config {
         this.initialSoC = initialSoC;
         this.allowedDischargePower = allowedDischargePower;
         this.allowedChargePower = allowedChargePower;
+        this.lowerSocBorder = lowerSocBorder;
+        this.higherSocBorder = higherSocBorder;
     }
     @Override
     public String id() {
@@ -105,6 +111,16 @@ public class EssConfig implements Config {
     @Override
     public int allowedChargePower() {
         return this.allowedChargePower;
+    }
+
+    @Override
+    public int[] higherSocBorder() {
+        return this.higherSocBorder;
+    }
+
+    @Override
+    public int[] lowerSocBorder() {
+        return this.lowerSocBorder;
     }
 
     @Override
