@@ -32,10 +32,10 @@ import io.openems.edge.common.modbusslave.ModbusSlaveTable;
 import io.openems.edge.common.startstop.StartStop;
 import io.openems.edge.common.startstop.StartStoppable;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.SoCStateMachine;
+import io.openems.edge.ess.api.SocState;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.ManagedSymmetricEssHybrid;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.SoCStateMachine;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.SocState;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.simulator.ess.symmetric.reacting.EssSymmetric;
 import io.openems.edge.timedata.api.Timedata;
@@ -177,6 +177,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			}
 			this.calculateEnergy();
 			this.soCStateMachine.calculateSoCState(this.getSoc().orElse(0));
+			this.getSocStateChannel().setNextValue(soCStateMachine.getSoCState());
 			this.calculatePossibleChargePower();
 			this.calculatePossibleDischargePower();
 
@@ -347,10 +348,6 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this._setAllowedDischargePower(upperDischargePower);
 		this._setLowerPossibleDischargePower(lowerDischargePower);
 		this._setUpperPossibleDischargePower(upperDischargePower);
-	}
-
-	public SocState getSocState(){
-		return soCStateMachine.getSoCState();
 	}
 
 	private boolean responseTimeElapsed() {

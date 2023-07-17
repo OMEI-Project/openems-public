@@ -6,10 +6,10 @@ import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.SoCStateMachine;
+import io.openems.edge.ess.api.SocState;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.ManagedSymmetricEssHybrid;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.SoCStateMachine;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.SocState;
 import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.ess.test.DummyManagedSymmetricEss;
 import io.openems.edge.ess.test.DummyPower;
@@ -132,6 +132,7 @@ implements ManagedSymmetricEssHybrid, ManagedSymmetricEss, SymmetricEss, Openems
 	@Override
 	public SocState getSocState() {
 		soCStateMachine.calculateSoCState(this.getSoc().orElse(0));
+		this.getSocChannel().setNextValue(soCStateMachine.getSoCState());
 		return soCStateMachine.getSoCState();
 	}
 

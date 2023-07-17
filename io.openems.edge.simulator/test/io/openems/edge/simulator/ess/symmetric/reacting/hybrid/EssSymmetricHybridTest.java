@@ -7,8 +7,9 @@ import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.common.test.DummyConfigurationAdmin;
 import io.openems.edge.common.test.TimeLeapClock;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.SocState;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.ManagedSymmetricEssHybrid;
 import io.openems.edge.ess.test.DummyPower;
 import io.openems.edge.simulator.ess.symmetric.hybrid.EssSymmetricHybrid;
 import org.junit.Test;
@@ -23,13 +24,20 @@ public class EssSymmetricHybridTest {
 	private static final String ESS_ID = "ess0";
 	private static final int CAPACITY = 400_000;
 	private static final int MAX_APPARENT_POWER = 100_000;
-	private static final int SOC = 50;
+	private static final int SOC = 60;
 	private static final int RAMP_RATE = 40_000;
 	private static final int RESPONSE_TIME = 2000;
+
+	private static final int INACTIVITY_TIME = 100_000;
+
+	private static final int[] LOWER_BOUNDS = new int[]{20, 50};
+	private static final int[] UPPER_BOUNDS = new int[]{20, 50};
+
 	private static final int CHARGE_POWER = -100_000;
 	private static final int DISCHARGE_POWER = 100_000;
 
 	private static final ChannelAddress ESS_SOC = new ChannelAddress(ESS_ID, SymmetricEss.ChannelId.SOC.id());
+	private static final ChannelAddress ESS_SOC_STATE = new ChannelAddress(ESS_ID, ManagedSymmetricEssHybrid.ChannelId.SOC_STATE.id());
 	private static final ChannelAddress ESS_SET_ACTIVE_POWER_EQUALS = new ChannelAddress(ESS_ID,
 			ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS.id());
 
@@ -48,6 +56,49 @@ public class EssSymmetricHybridTest {
 	private ManagedSymmetricEssHybridTest setup(String ess_id, int capacity, int maxApparentPower, int SoC, GridMode gridMode,
 			int rampRate, int responseTime, int chargePower, int dischargePower) throws Exception {
 		return new ManagedSymmetricEssHybridTest(new EssSymmetricHybrid()) //
+//				.addReference("cm", new DummyConfigurationAdmin()) //
+				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addReference("power", new DummyPower()) //
+				.activate(MyConfig.create() //
+						.setId(ess_id) //
+						.setCapacity(capacity) //
+						.setInitialSoc(SoC) //
+						.setGridMode(gridMode) //
+						.setRampRate(rampRate)
+						.setInactivityTime(INACTIVITY_TIME)
+						.setResponseTime(responseTime)
+						.setAllowedChargePower(chargePower)
+						.setAllowedDischargePower(dischargePower)
+						.setLowerSocBorder(LOWER_BOUNDS)
+						.setHigherSocBorder(UPPER_BOUNDS)
+						.build());
+	}
+
+	private ManagedSymmetricEssHybridTest setup(String ess_id, int capacity, int maxApparentPower, int SoC, GridMode gridMode,
+												int rampRate, int responseTime, int inactivityTime, int chargePower,
+												int dischargePower, int[] lowerBounds, int[] upperBounds) throws Exception {
+		return new ManagedSymmetricEssHybridTest(new EssSymmetricHybrid()) //
+//				.addReference("cm", new DummyConfigurationAdmin()) //
+				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addReference("power", new DummyPower()) //
+				.activate(MyConfig.create() //
+						.setId(ess_id) //
+						.setCapacity(capacity) //
+						.setInitialSoc(SoC) //
+						.setGridMode(gridMode) //
+						.setRampRate(rampRate)
+						.setInactivityTime(inactivityTime)
+						.setResponseTime(responseTime)
+						.setAllowedChargePower(chargePower)
+						.setAllowedDischargePower(dischargePower)
+						.setLowerSocBorder(lowerBounds)
+						.setHigherSocBorder(upperBounds)
+						.build());
+	}
+
+	private ManagedSymmetricEssHybridTest setup(String ess_id, int capacity, int maxApparentPower, int SoC, GridMode gridMode,
+												int rampRate, int responseTime, int inactivityTime, int chargePower, int dischargePower, int maximumSoc, int minimumSoc, int[] higherSocBorder, int[] lowerSocBorder) throws Exception {
+		return new ManagedSymmetricEssHybridTest(new EssSymmetricHybrid()) //
 				.addReference("cm", new DummyConfigurationAdmin()) //
 				.addReference("componentManager", new DummyComponentManager(clock)) //
 				.addReference("power", new DummyPower()) //
@@ -57,14 +108,23 @@ public class EssSymmetricHybridTest {
 						.setInitialSoc(SoC) //
 						.setGridMode(gridMode) //
 						.setRampRate(rampRate)
+						.setInactivityTime(inactivityTime)
 						.setResponseTime(responseTime)
 						.setAllowedChargePower(chargePower)
 						.setAllowedDischargePower(dischargePower)
+						.setLowerSocBorder(lowerSocBorder)
+						.setHigherSocBorder(higherSocBorder)
 						.build());
+	}
+
+	private ManagedSymmetricEssHybridTest setup(int[] lowerBounds, int[] upperBounds) throws Exception {
+		return this.setup(ESS_ID, CAPACITY, MAX_APPARENT_POWER, SOC, GridMode.ON_GRID, RAMP_RATE, RESPONSE_TIME,
+				INACTIVITY_TIME, CHARGE_POWER, DISCHARGE_POWER, lowerBounds, upperBounds);
 	}
 	
 	private ManagedSymmetricEssHybridTest setup() throws Exception {
-		return this.setup(ESS_ID, CAPACITY, MAX_APPARENT_POWER, SOC, GridMode.ON_GRID, RAMP_RATE, RESPONSE_TIME, CHARGE_POWER, DISCHARGE_POWER);
+		return this.setup(ESS_ID, CAPACITY, MAX_APPARENT_POWER, SOC, GridMode.ON_GRID, RAMP_RATE, RESPONSE_TIME,
+				INACTIVITY_TIME, CHARGE_POWER, DISCHARGE_POWER, LOWER_BOUNDS, UPPER_BOUNDS);
 	}
 	
 	/*
@@ -158,6 +218,7 @@ public class EssSymmetricHybridTest {
 		testEss.next(new TestCase()
 						.timeleap(clock, RESPONSE_TIME + 1, ChronoUnit.MILLIS)
 						.input(ESS_ACTIVE_POWER, 10_000)
+						.input(ESS_SOC, 90)
 						.output(ESS_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -30_000)
 						.output(ESS_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
 						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, RAMP_RATE + 10_000)
@@ -165,13 +226,15 @@ public class EssSymmetricHybridTest {
 						.output(ESS_GET_ALLOWED_DISCHARGE_POWER, RAMP_RATE + 10_000))
 				.next(new TestCase()
 						.input(ESS_ACTIVE_POWER,RAMP_RATE + 10_000)
+						.input(ESS_SOC, 90)
 						.output(ESS_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
 						.output(ESS_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, 0)
 						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 10_000)
-						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 2*RAMP_RATE + 10_000)
-						.output(ESS_GET_ALLOWED_DISCHARGE_POWER,2*RAMP_RATE + 10_000))
+						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 2*RAMP_RATE+10_000)
+						.output(ESS_GET_ALLOWED_DISCHARGE_POWER,2*RAMP_RATE+10_000))
 				.next(new TestCase()
 						.input(ESS_ACTIVE_POWER, DISCHARGE_POWER - 10_000)
+						.input(ESS_SOC, 90)
 						.output(ESS_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
 						.output(ESS_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, 0)
 						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, DISCHARGE_POWER)
@@ -211,6 +274,67 @@ public class EssSymmetricHybridTest {
 						.output(ESS_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
 						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, (int)(rampRate))
 						.output(ESS_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0));
+	}
+
+	@Test
+	public void socState() throws Exception {
+		int[] lowerBounds = new int[] {15, 50};
+		int[] upperBounds = new int[] {25, 55};
+		ManagedSymmetricEssHybridTest testEss = setup(lowerBounds, upperBounds);
+		testEss.next(new TestCase()
+				.input(ESS_SOC, 50)
+				.output(ESS_SOC_STATE, SocState.ORANGE))
+				.next(new TestCase()
+						.input(ESS_SOC, 50)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 55)
+						.output(ESS_SOC_STATE, SocState.ORANGE))
+				.next(new TestCase()
+						.input(ESS_SOC, 50)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 56)
+						.output(ESS_SOC_STATE, SocState.GREEN))
+				.next(new TestCase()
+						.input(ESS_SOC, 60)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 50)
+						.output(ESS_SOC_STATE, SocState.GREEN))
+				.next(new TestCase()
+						.input(ESS_SOC, 60)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 45)
+						.output(ESS_SOC_STATE, SocState.ORANGE))
+				.next(new TestCase()
+						.input(ESS_SOC, 45)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 20)
+						.output(ESS_SOC_STATE, SocState.ORANGE))
+				.next(new TestCase()
+						.input(ESS_SOC, 45)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 15)
+						.output(ESS_SOC_STATE, SocState.ORANGE))
+				.next(new TestCase()
+						.input(ESS_SOC, 45)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 14)
+						.output(ESS_SOC_STATE, SocState.RED))
+				.next(new TestCase()
+						.input(ESS_SOC, 14)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 20)
+						.output(ESS_SOC_STATE, SocState.RED))
+				.next(new TestCase()
+						.input(ESS_SOC, 14)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 25)
+						.output(ESS_SOC_STATE, SocState.RED))
+				.next(new TestCase()
+						.input(ESS_SOC, 14)
+						.timeleap(clock, 1, ChronoUnit.SECONDS)
+						.input(ESS_SOC, 26)
+						.output(ESS_SOC_STATE, SocState.ORANGE));
+
 	}
 
 	@Test

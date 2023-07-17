@@ -1,13 +1,13 @@
-package io.openems.edge.ess.api.managedsymmetricesshybrid;
+package io.openems.edge.ess.api;
 
 import io.openems.common.channel.Unit;
 import io.openems.common.types.OpenemsType;
+import io.openems.edge.common.channel.Channel;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.channel.IntegerReadChannel;
 import io.openems.edge.common.channel.value.Value;
-import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.ManagedSymmetricEssHybrid.ChannelId;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.SocState;
+import io.openems.edge.ess.api.SocState;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid.ChannelId;
 
 public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 
@@ -42,7 +42,11 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 		 */
 		LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.WATT)),
+		SOC_STATE(Doc.of(SocState.values())),
 		;
+
+
+
 		private final Doc doc;
 
 		ChannelId(Doc doc) {
@@ -56,6 +60,13 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 	}
 
 	int filterPower(int targetPower);
+
+	default Channel<SocState> getSocStateChannel() {
+		return channel(ChannelId.SOC_STATE);
+	}
+	default SocState getSocState() {
+		return this.getSocStateChannel().value().asEnum();
+	}
 	
 	/**
 	 * Gets upper boundary of possible charge power for this cycle.
@@ -127,6 +138,4 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 	default IntegerReadChannel getLowerPossibleDischargePowerChannel() {
 		return channel(ChannelId.LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT);
 	}
-
-	public SocState getSocState();
 }

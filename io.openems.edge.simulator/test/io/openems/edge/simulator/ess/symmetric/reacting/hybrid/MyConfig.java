@@ -72,6 +72,16 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
+		public Builder setLowerSocBorder(int[] socBorder) {
+			this.lowerSocBorder = socBorder;
+			return this;
+		}
+
+		public Builder setHigherSocBorder(int[] socBorder) {
+			this.higherSocBorder = socBorder;
+			return this;
+		}
+
 		public MyConfig build() {
 			return new MyConfig(this);
 		}

@@ -3,16 +3,10 @@ package io.openems.edge.simulator.pythonBridge;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.event.EdgeEventConstants;
-import io.openems.edge.common.sum.Sum;
 import io.openems.edge.common.test.TimeLeapClock;
-import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.power.api.Power;
 import io.openems.edge.simulator.ess.symmetric.hybrid.EssSymmetricHybrid;
 
 import org.osgi.service.event.Event;
-import org.osgi.service.event.propertytypes.EventTopics;
-
-import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;

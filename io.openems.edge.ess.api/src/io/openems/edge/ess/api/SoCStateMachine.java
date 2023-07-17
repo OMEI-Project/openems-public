@@ -1,16 +1,15 @@
-package io.openems.edge.ess.api.managedsymmetricesshybrid;
+package io.openems.edge.ess.api;
 
-import static io.openems.edge.ess.api.managedsymmetricesshybrid.SocState.*;
+import static io.openems.edge.ess.api.SocState.*;
 
 
 public class SoCStateMachine {
-
     private SocState currentState = ORANGE;
     private final int[] lowerBorder;
     private final int[] upperBorder;
 
     public SoCStateMachine(){
-        lowerBorder = new int[]{20,50};
+        lowerBorder = new int[]{20, 50};
         upperBorder = new int[]{25, 50};
     }
 
@@ -30,13 +29,15 @@ public class SoCStateMachine {
             case ORANGE:
                 if (soc < lowerBorder[0]) {
                     nextState = RED;
-                } else if (soc >= upperBorder[1]) {
+                } else if (soc > upperBorder[1]) {
                     nextState = GREEN;
-                } break;
+                }
+                break;
             case RED:
-                if(soc >= upperBorder[0]) {
+                if(soc > upperBorder[0]) {
                     nextState = ORANGE;
-                } break;
+                }
+                break;
             default:
                 throw new IllegalStateException(String.format("Encountered unknown SocState: %s.", currentState));
         }

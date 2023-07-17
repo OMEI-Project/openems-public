@@ -31,8 +31,8 @@ import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.sum.Sum;
 import io.openems.edge.controller.api.Controller;
 import io.openems.edge.ess.api.CalculateGridMode;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.ManagedSymmetricEssHybrid;
-import io.openems.edge.ess.api.managedsymmetricesshybrid.SocState;
+import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.SocState;
 
 
 @Designate(ocd = Config.class, factory = true)
@@ -63,21 +63,6 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			{0.2, 0.7, 0.7},
 			{0, 0.3, 0.7}};
 
-	/**
-	 * Boundary of SoC-Areas for main.
-	 * Below {@code  MAIN_SOC_BOUNDARIES[0]} : RED AREA.
-	 * Between {@code  MAIN_SOC_BOUNDARIES[0]} and {@code  MAIN_SOC_BOUNDARIES[1]} : ORANGE AREA
-	 * Above {@code  MAIN_SOC_BOUNDARIES[1]}: GREEN AREA
-	 */
-	private final static int[] MAIN_SOC_BOUNDARIES = {20,70};
-
-	/**
-	 * Boundary of SoC-Areas for support.
-	 * Below {@code  SUPPORT_SOC_BOUNDARIES[0]} : RED AREA.
-	 * Between {@code  SUPPORT_SOC_BOUNDARIES[0]} and {@code  SUPPORT_SOC_BOUNDARIES[1]} : ORANGE AREA
-	 * Above {@code  SUPPORT_SOC_BOUNDARIES[1]}: GREEN AREA
-	 */
-	private final static int[] SUPPORT_SOC_BOUNDARIES = {20, 50};
 	private final Logger log = LoggerFactory.getLogger(HybridControllerImpl.class);
 
 	private String mainId;
@@ -363,11 +348,11 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	}
 
 	private static double getPowerSplitCharging(SocState mainSocState, SocState supportSocState) {
-		return CHARGE_TABLE[supportSocState.ordinal()][mainSocState.ordinal()];
+		return CHARGE_TABLE[supportSocState.getValue()][mainSocState.getValue()];
 	}
 
 	private static double getPowerSplitDischarging(SocState mainSocState, SocState supportSocState) {
-		return DISCHARGE_TABLE[supportSocState.ordinal()][mainSocState.ordinal()];
+		return DISCHARGE_TABLE[supportSocState.getValue()][mainSocState.getValue()];
 	}
 
 	/**
