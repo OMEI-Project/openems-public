@@ -8,11 +8,6 @@ public class SoCStateMachine {
     private final int[] lowerBorder;
     private final int[] upperBorder;
 
-    public SoCStateMachine(){
-        lowerBorder = new int[]{20, 50};
-        upperBorder = new int[]{25, 50};
-    }
-
     public SoCStateMachine(int[] lowerBorder, int[] upperBorder) {
         this.lowerBorder = lowerBorder;
         this.upperBorder = upperBorder;
@@ -22,19 +17,23 @@ public class SoCStateMachine {
         SocState nextState = currentState;
         switch(currentState) {
             case GREEN:
-                if (soc < lowerBorder[1]) {
-                nextState = ORANGE;
+                if (soc <= lowerBorder[0]) {
+                    nextState = RED;
+                } else if (soc <= lowerBorder[1]) {
+                    nextState = ORANGE;
                 }
                 break;
             case ORANGE:
-                if (soc < lowerBorder[0]) {
+                if (soc <= lowerBorder[0]) {
                     nextState = RED;
                 } else if (soc > upperBorder[1]) {
                     nextState = GREEN;
                 }
                 break;
             case RED:
-                if(soc > upperBorder[0]) {
+                if (soc > upperBorder[1]) {
+                    nextState = GREEN;
+                }else if(soc > upperBorder[0]) {
                     nextState = ORANGE;
                 }
                 break;

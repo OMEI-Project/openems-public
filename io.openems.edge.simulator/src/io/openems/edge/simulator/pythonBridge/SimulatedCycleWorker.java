@@ -4,6 +4,7 @@ import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.test.TimeLeapClock;
+import io.openems.edge.ess.api.SocState;
 import io.openems.edge.simulator.ess.symmetric.hybrid.EssSymmetricHybrid;
 
 import org.osgi.service.event.Event;
@@ -38,6 +39,9 @@ public class SimulatedCycleWorker {
     private int mainSoc;
     private int supportSoc;
     private int hessSoc;
+
+	private int mainSoCState;
+	private int supportSoCState;
     
     private int gridActivePower;
     
@@ -90,6 +94,9 @@ public class SimulatedCycleWorker {
 
     	currentConsumption = consumption;
     	currentProduction = production;
+
+		mainSoCState = main.getSocState().getValue();
+		supportSoCState = support.getSocState().getValue();
 
 		currentDateTime = Instant.now(clock);
 		clock.leap(1, ChronoUnit.SECONDS);
@@ -158,6 +165,14 @@ public class SimulatedCycleWorker {
 
 	public int getGridActivePower() {
 		return gridActivePower;
+	}
+
+	public int getMainSoCState() {
+		return mainSoCState;
+	}
+
+	public int getSupportSoCState() {
+		return supportSoCState;
 	}
 
 	/*

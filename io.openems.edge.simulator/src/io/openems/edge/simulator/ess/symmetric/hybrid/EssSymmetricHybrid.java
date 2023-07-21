@@ -41,6 +41,11 @@ import io.openems.edge.simulator.ess.symmetric.reacting.EssSymmetric;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 
 @SuppressWarnings("restriction")
 @Designate(ocd = Config.class, factory = true)
@@ -98,6 +103,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 
 	@Reference
 	protected ComponentManager componentManager;
+
+	private final Logger log = LoggerFactory.getLogger(EssSymmetricHybrid.class);
 
 	private CalculateEnergyFromPower calculateChargeEnergy = new CalculateEnergyFromPower(this,
 			SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY);
@@ -176,12 +183,11 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 				inactivityTimestamp = null;
 			}
 			this.calculateEnergy();
-			this.soCStateMachine.calculateSoCState(this.getSoc().orElse(0));
-			this.getSocStateChannel().setNextValue(soCStateMachine.getSoCState());
+			this.updateSocState();
 			this.calculatePossibleChargePower();
 			this.calculatePossibleDischargePower();
 
-			if(activePower == 0) {
+			if(ready && activePower == 0) {
 				if(inactivityTimestamp == null) {
 					inactivityTimestamp = Instant.now(componentManager.getClock());
 				}
@@ -275,20 +281,35 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		int filteredPower = targetPower;
 		int upperLimit = 0;
 		int lowerLimit = 0;
+		int currentPower = this.getActivePower().orElse(0);
 
 		if(!ready && targetPower != 0) {
 			beginStartTimer();
 			filteredPower = 0;
 		} else if (targetPower >= 0){
 			// Discharging
+			if(currentPower >= 0) {
+				upperLimit = this.getUpperPossibleDischargePower().orElse(0);
+				lowerLimit = this.getLowerPossibleDischargePower().orElse(0);
+			} else {
 
-			upperLimit = this.getUpperPossibleDischargePower().orElse(0);
-			lowerLimit = this.getLowerPossibleDischargePower().orElse(0);
+				// Need to ramp up first.
+				upperLimit = this.getUpperPossibleChargePower().orElse(0);
+				lowerLimit = this.getLowerPossibleChargePower().orElse(0);
+			}
 		} else {
 			// Charging
 
-			upperLimit = this.getUpperPossibleChargePower().orElse(0);
-			lowerLimit = this.getLowerPossibleChargePower().orElse(0);
+			if(currentPower <= 0) {
+				upperLimit = this.getUpperPossibleChargePower().orElse(0);
+				lowerLimit = this.getLowerPossibleChargePower().orElse(0);
+			} else {
+
+				// Need to ramp down first
+				upperLimit = this.getUpperPossibleDischargePower().orElse(0);
+				lowerLimit = this.getLowerPossibleDischargePower().orElse(0);
+			}
+
 		}
 
 		if(targetPower > upperLimit) {
@@ -300,14 +321,53 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		return filteredPower;
 	}
 
+	private int getDeratedChargePower(int soc){
+		double deratingFactor;
+		int deratedPower;
+		if (soc > 70) {
+			deratingFactor = 0.6; //Green ]70,90]
+		} else if( soc > 20){
+			deratingFactor = 0.8; // ORANGE ]20,70]
+		} else {
+			deratingFactor = 1;    //RED [0-20]
+		}
+		return  (int) (maxChargePower*deratingFactor);
+	}
+
+	private int getDeratedDischargePower(int soc) {
+		double deratingFactor;
+		int deratedPower;
+		if (soc > 70) {
+			deratingFactor = 0.6; //Green ]70,90]
+		} else if( soc > 20){
+			deratingFactor = 0.8; // ORANGE ]20,70]
+		} else {
+			deratingFactor = 1;    //RED [0-20]
+		}
+		return (int) (maxChargePower*deratingFactor);
+	}
+
+	private void calculatePossiblePower() {
+		int lowerLimit = 0;
+		int upperLimit = 0;
+		Integer  nextPower = this.getActivePowerChannel().getNextValue().get();
+		Integer soc = this.getSoc().get();
+		if(ready && nextPower != 0 && soc != null) {
+			int dischargeLimit = getDeratedDischargePower(soc);
+			int chargeLimit = getDeratedChargePower(soc);
+			lowerLimit = max(nextPower - rampRate, chargeLimit);
+			upperLimit = min(nextPower + rampRate, dischargeLimit);
+		}
+	}
+
 	private void calculatePossibleChargePower() {
 		int lowerChargePower = 0;
 		int upperChargePower = 0;
 		double deratingFactor;
 		int deratedPower;
-		int currentPower = this.getActivePower().orElse(0);
+		Integer nextPower = this.getActivePowerChannel().getNextValue().get();
 		int soc = this.getSoc().orElse(100);
-		if(ready && soc <= maximumSoc) {
+		if(ready && soc <= maximumSoc && nextPower!= null) {
 
 			if (soc > 70) {
 				deratingFactor = 0.6; //Green ]70,90]
@@ -317,8 +377,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 				deratingFactor = 1;    //RED [0-20]
 			}
 			deratedPower = (int) (maxChargePower*deratingFactor);
-			lowerChargePower = Math.min(Math.max(currentPower - rampRate, deratedPower),0);
-			upperChargePower = Math.min(currentPower + rampRate, 0);
+			lowerChargePower = min(max(nextPower - rampRate, deratedPower),0);
+			upperChargePower = min(nextPower + rampRate, 0);
 		}
 		this._setAllowedChargePower(lowerChargePower);
 		this._setLowerPossibleChargePower(lowerChargePower);
@@ -329,10 +389,10 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		int lowerDischargePower = 0;
 		int upperDischargePower = 0;
 		int soc = this.getSoc().orElse(0);
-		int currentPower = this.getActivePower().orElse(0);
 		double deratingFactor;
 		int deratedPower;
-		if(ready && soc >= minimumSoc) {
+		Integer nextPower = this.getActivePowerChannel().getNextValue().get();
+		if(ready && soc >= minimumSoc && nextPower!= null) {
 			if (soc > 70) {
 				deratingFactor = 1; //Green ]70,90]
 			} else if( soc > 20){
@@ -342,8 +402,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			}
 
 			deratedPower = (int)(maxDischargePower*deratingFactor);
-			lowerDischargePower = Math.max(currentPower - rampRate, 0);
-			upperDischargePower = Math.max(Math.min(currentPower + rampRate, deratedPower),0);
+			lowerDischargePower = max(nextPower - rampRate, 0);
+			upperDischargePower = max(min(nextPower + rampRate, deratedPower),0);
 		}
 		this._setAllowedDischargePower(upperDischargePower);
 		this._setLowerPossibleDischargePower(lowerDischargePower);
@@ -412,6 +472,20 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			this.calculateChargeEnergy.update(activePower * -1);
 			this.calculateDischargeEnergy.update(0);
 		}
+	}
+
+	private void updateSocState() {
+		Integer soc = this.getSoc().get();
+		if(soc == null && this.lastTimestamp != null) {
+			this.logInfo(log,"Read soc is null. Do not update SocState");
+			return;
+		} else if(soc == null) {
+
+			// Avoid Undefined on initial cycle.
+			soc = this.config.initialSoc();
+		}
+		this.soCStateMachine.calculateSoCState(soc);
+		this.getSocStateChannel().setNextValue(soCStateMachine.getSoCState());
 	}
 	
 	private int calculateSoc(Instant now) {

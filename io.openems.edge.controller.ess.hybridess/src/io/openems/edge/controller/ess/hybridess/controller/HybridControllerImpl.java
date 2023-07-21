@@ -4,6 +4,7 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.Month;
 import java.util.Arrays;
@@ -34,6 +35,9 @@ import io.openems.edge.ess.api.CalculateGridMode;
 import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
 import io.openems.edge.ess.api.SocState;
 
+import static java.lang.Math.abs;
+import static java.lang.Math.max;
+
 
 @Designate(ocd = Config.class, factory = true)
 @Component(//
@@ -59,8 +63,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 * ChargeTable[SocStateSupport][SocStateMain] = % of required power drawn from main.
 	 */
 	private final static double[][] DISCHARGE_TABLE =
-			{{0.5, 0.8, 1.0},
-			{0.2, 0.7, 0.7},
+			{{0.5, 0.7, 1.0},
+			{0.3, 0.7, 0.7},
 			{0, 0.3, 0.7}};
 
 	private final Logger log = LoggerFactory.getLogger(HybridControllerImpl.class);
@@ -204,12 +208,12 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		int remainder = essPower - mainEssPower - supportEssPower;
 		mainEssPower = mainEss.filterPower(mainEssPower + remainder);
 
-		if (consumption > maxGridPower + production + mainEssPower + supportEssPower) {
+		if (consumptionExceedsAvailablePower(consumption, maxGridPower, production, mainEssPower, supportEssPower)) {
 
 			// TODO Load shedding. Handling of this case. For now just let it happen.
-			logInfo(log,String.format("Consumption of %s W would not be met with a limited grid " +
-					"by a total of %s W supplied from grid, production and ESS. Load shedding required for future.",
-					consumption, maxGridPower + production + mainEssPower + supportEssPower ));
+			logInfo(log,String.format("%s Consumption of %d W could not be met with a limited grid " +
+					"with a total available Power of %d W. With a grid limit of %d W, %d W from production and %d W from Main and %d W from Support. Load shedding required for future.",
+					Instant.now(componentManager.getClock()), consumption, maxGridPower + production + mainEssPower + supportEssPower, maxGridPower, production, mainEssPower, supportEssPower));
 		}
 
 		mainEss.setActivePowerEquals(mainEssPower);
@@ -242,13 +246,14 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		} else if (activeEssPower + conservedEssPower >= essPower) {
 
 			// Demand can be met by grid + production + both ess.
+			activeEssPower = activeEss.filterPower(essPower);
 			conservedEssPower = essPower - activeEssPower;
-		} else if (activeEssPower + conservedEssPower < essPower) {
+		} else {
 
-			// In these case some kind of load shedding should happen, as load can not be served by available power sources.
-			logInfo(log,String.format("Consumption of %s W would not be met with a limited grid " +
-							"by a total of %s W supplied from grid, production and ESS. Load shedding required for future.",
-					consumption, maxGridPower + production + activeEssPower + conservedEssPower ));
+			// Demand can not be met with current grid limit + production + both ess.
+			// For the future some way to shed load would have to be implemented here.
+			activeEssPower = activeEss.filterPower(essPower);
+			conservedEssPower = essPower - activeEssPower;
 		}
 
 		activeEssPower = activeEss.filterPower(activeEssPower);
@@ -256,9 +261,19 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 		int remainder = essPower - activeEssPower - conservedEssPower;
 
-		if( consumption + conservedEssPower < production ) { // if conservedEss & consumption is charged solely on production power, reassign remainder.
+		if(conservedEssPower <= 0 && (consumption - conservedEssPower < production)) { // if conservedEss & consumption is charged solely on production power, reassign remainder.
 			activeEssPower = activeEss.filterPower(activeEssPower + remainder);
 		}
+
+		if (consumptionExceedsAvailablePower(consumption, maxGridPower, production, activeEssPower, conservedEssPower)) {
+
+			// In these case some kind of load shedding should happen, as load can not be served by available power sources.
+			// TODO Load shedding. Handling of this case. For now just let it happen.
+			logInfo(log,String.format("%s Consumption of %d W could not be met with a limited grid " +
+							"with a total available Power of %d W. With a grid limit of %d W, %d W from production and %d W from ActiveESS and %d W from ConservedESS. Load shedding required for future.",
+					Instant.now(componentManager.getClock()), consumption, maxGridPower + production + conservedEssPower + activeEssPower, maxGridPower, production, activeEssPower, conservedEssPower));
+		}
+
 
 		conservedEss.setActivePowerEquals(conservedEssPower);
 		activeEss.setActivePowerEquals(activeEssPower);
@@ -315,6 +330,10 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			lastPowerPrediction = prediction.orElse(null);
 		}
 		return lastPowerPrediction == null ? 0 : lastPowerPrediction.getValue();
+	}
+
+	private boolean consumptionExceedsAvailablePower(int consumption, int gridLimit, int production, int firstEssPower, int secondEssPower) {
+		return (gridLimit + production) < consumption - firstEssPower - secondEssPower;
 	}
 
 	private Optional<Row> getPrediction(File powerPredictionFile) {
