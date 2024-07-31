@@ -9,6 +9,12 @@ public class SoCStateMachine {
     private final int[] upperBorder;
 
     public SoCStateMachine(int[] lowerBorder, int[] upperBorder) {
+    	if (lowerBorder.length != 2) {
+            throw new IllegalArgumentException("The Lower SoC Border must contain exactly two elements.");
+        }
+    	if (upperBorder.length != 2) {
+            throw new IllegalArgumentException("The Upper SoC Border must contain exactly two elements.");
+        }
         this.lowerBorder = lowerBorder;
         this.upperBorder = upperBorder;
     }

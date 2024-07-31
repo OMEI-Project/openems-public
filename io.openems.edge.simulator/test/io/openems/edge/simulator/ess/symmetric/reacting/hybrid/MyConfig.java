@@ -189,7 +189,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		return this.builder.allowedChargePower;
 	}
 
-	@Override
+	/*@Override
     public double[] chargingEfficiencyKeys() {
             return this.builder.chargingEfficiencyKeys ;
     }
@@ -207,7 +207,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
     @Override
     public double[] dischargingEfficiencyValues() {
             return this.builder.dischargingEfficiencyValues;
-    }
+    }*/
     
     @Override
     public double batteryChargingEfficiency() {
@@ -220,13 +220,13 @@ public class MyConfig extends AbstractComponentConfig implements Config {
     }
     
     @Override
-	public int[] higherSocBorder() {
-		return this.builder.higherSocBorder;
+	public String[] higherSocBorder() {
+		return null;
 	}
 
 	@Override
-	public int[] lowerSocBorder() {
-		return this.builder.lowerSocBorder;
+	public String[] lowerSocBorder() {
+		return null;
 	}
 
 }

@@ -54,7 +54,7 @@ public @interface Config {
 	@AttributeDefinition(name="Allowed Charge Power", description="Maximum amount of power in [W] this ESS can be charged with. Has to be <=0", max = "0")
 	int allowedChargePower();
 	
-	@AttributeDefinition(name="Efficiency Keys of Inverter for Charging", description = "Keys for efficiency lookup-table based on {Power/C-Rate?}." +
+	/*@AttributeDefinition(name="Efficiency Keys of Inverter for Charging", description = "Keys for efficiency lookup-table based on {Power/C-Rate?}." +
             " Has to have the same amount of entries as 'Efficiency Values'. key[i] will map to value[i]")
 	double[] chargingEfficiencyKeys() default {1.0};
 	
@@ -69,17 +69,17 @@ public @interface Config {
 	
 	@AttributeDefinition(name = "Efficiency Values of Inverter for Discharging", description = "Values for the efficiency lookup-table." +
 	            " Has to have the same amount of entries as 'Efficiency Keys'.key[i] will map to value[i]")
-	double[] dischargingEfficiencyValues() default {1.0};
+	double[] dischargingEfficiencyValues() default {1.0};*/
 	
-	@AttributeDefinition(name="Efficiency of Battery (Not Including Inverter) for Charging", description = "Efficiency as percentage.")
+	@AttributeDefinition(name="Charging Battery Efficiency", description = "Efficiency (Not Including Inverter) as percentage.")
 	double batteryChargingEfficiency() default 1.0;
 	
-	@AttributeDefinition(name = "Efficiency of Battery (Not Including Inverter) for Discharging", description = "Efficiency as percentage.")
+	@AttributeDefinition(name = "Discharging Battery Efficiency", description = "Efficiency (Not Including Inverter) as percentage.")
 	double batteryDischargingEfficiency() default 1.0;
 	
-	@AttributeDefinition(name = "Upper SoC Border", description ="Denotes SoC at which the battery will change to higher SoCState")
-	int[] higherSocBorder() default {25,50};
+	@AttributeDefinition(name = "Upper SoC Borders", description ="Denotes SoC at which the battery will change to higher SoCState")
+	String[] higherSocBorder() default {"20","50"};
 
-	@AttributeDefinition(name = "Lower SoC Border", description ="Denotes SoC at which the battery will change to lower SoCState")
-	int[] lowerSocBorder()  default {20,50};
+	@AttributeDefinition(name = "Lower SoC Borders", description ="Denotes SoC at which the battery will change to lower SoCState")
+	String[] lowerSocBorder()  default {"20","50"};
 }

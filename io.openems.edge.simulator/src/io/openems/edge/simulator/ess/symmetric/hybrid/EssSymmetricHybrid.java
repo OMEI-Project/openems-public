@@ -165,9 +165,14 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this.rampRate = config.rampRate();
 		this.responseTime = Duration.of(config.responseTime(), ChronoUnit.MILLIS).toSeconds();
 		this.ready = responseTime == 0;
-		soCStateMachine = new SoCStateMachine(config.lowerSocBorder(), config.higherSocBorder());
-		this.chargingEfficencyTable = new EfficiencyTable(config.chargingEfficiencyKeys(), config.chargingEfficiencyValues());
-        this.dischargingEfficencyTable = new EfficiencyTable(config.chargingEfficiencyKeys(), config.chargingEfficiencyValues());
+		soCStateMachine = new SoCStateMachine(toIntArray(config.lowerSocBorder()), toIntArray(config.higherSocBorder()));
+		//this.chargingEfficencyTable = new EfficiencyTable(config.chargingEfficiencyKeys(), config.chargingEfficiencyValues());
+        //this.dischargingEfficencyTable = new EfficiencyTable(config.chargingEfficiencyKeys(), config.chargingEfficiencyValues());
+		//int[] borders = {25,50};
+		//soCStateMachine = new SoCStateMachine(borders, borders);
+		double[] efficiencies = {};
+		this.chargingEfficencyTable = new EfficiencyTable(efficiencies, efficiencies);
+        this.dischargingEfficencyTable = new EfficiencyTable(efficiencies, efficiencies);
         this.batteryChargingEfficiency = config.batteryChargingEfficiency();
         this.batteryDischargingEfficiency = config.batteryDischargingEfficiency();
 	}
@@ -462,7 +467,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	        if(power < 0){
 	                return chargingEfficencyTable.getEfficiency(value) * batteryChargingEfficiency;
 	        } else {
-	                return dischargingEfficencyTable.getEfficiency(value)* batteryDischargingEfficiency;
+	                return dischargingEfficencyTable.getEfficiency(value) * batteryDischargingEfficiency;
 	        }
 	        
 	}
@@ -613,4 +618,28 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	public void _pyhtonBridgeSetPower(Power power) {
 		this.power = power;
 	}
+	
+	public static double[] toDoubleArray(String[] stringArray) {
+        double[] doubleArray = new double[stringArray.length];
+        for (int i = 0; i < stringArray.length; i++) {
+            try {
+                doubleArray[i] = Double.parseDouble(stringArray[i].trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid format for double conversion: " + stringArray[i], e);
+            }
+        }
+        return doubleArray;
+    }
+
+    public static int[] toIntArray(String[] stringArray) {
+        int[] intArray = new int[stringArray.length];
+        for (int i = 0; i < stringArray.length; i++) {
+            try {
+                intArray[i] = Integer.parseInt(stringArray[i].trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid format for int conversion: " + stringArray[i], e);
+            }
+        }
+        return intArray;
+    }
 }

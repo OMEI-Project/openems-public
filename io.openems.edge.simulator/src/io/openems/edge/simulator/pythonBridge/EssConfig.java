@@ -127,7 +127,7 @@ public class EssConfig implements Config {
         return this.allowedChargePower;
     }
     
-    @Override
+    /*@Override
     public double[] chargingEfficiencyKeys() {
             return this.chargingEfficiencyKeys ;
     }
@@ -145,7 +145,7 @@ public class EssConfig implements Config {
     @Override
     public double[] dischargingEfficiencyValues() {
             return this.dischargingEfficiencyValues;
-    }
+    }*/
     
     @Override
 	public double batteryChargingEfficiency() {
@@ -158,17 +158,33 @@ public class EssConfig implements Config {
 	}
 
     @Override
-    public int[] higherSocBorder() {
-        return this.higherSocBorder;
+    public String[] higherSocBorder() {
+        return toStringArray(higherSocBorder);
     }
 
     @Override
-    public int[] lowerSocBorder() {
-        return this.lowerSocBorder;
+    public String[] lowerSocBorder() {
+    	return toStringArray(lowerSocBorder);
     }
 
     @Override
     public Class<? extends Annotation> annotationType() {
         return null;
+    }
+    
+    public static String[] toStringArray(double[] doubleArray) {
+        String[] stringArray = new String[doubleArray.length];
+        for (int i = 0; i < doubleArray.length; i++) {
+            stringArray[i] = Double.toString(doubleArray[i]);
+        }
+        return stringArray;
+    }
+
+    public static String[] toStringArray(int[] intArray) {
+        String[] stringArray = new String[intArray.length];
+        for (int i = 0; i < intArray.length; i++) {
+            stringArray[i] = Integer.toString(intArray[i]);
+        }
+        return stringArray;
     }
 }
