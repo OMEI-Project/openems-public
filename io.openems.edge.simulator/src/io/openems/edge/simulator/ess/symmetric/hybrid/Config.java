@@ -54,20 +54,20 @@ public @interface Config {
 	@AttributeDefinition(name="Allowed Charge Power", description="Maximum amount of power in [W] this ESS can be charged with. Has to be <=0", max = "0")
 	int allowedChargePower();
 	
-	@AttributeDefinition(name="Efficiency Keys of Inverter for Charging", description = "Keys for efficiency lookup-table based on {Power/C-Rate?}." +
+	@AttributeDefinition(name="Charging Inverter Efficiency Keys", description = "Keys for efficiency lookup-table based on {Power/C-Rate?}." +
             " Has to have the same amount of entries as 'Efficiency Values'. key[i] will map to value[i]")
 	String[] chargingEfficiencyKeys() default {"1.0"};
 	
-	@AttributeDefinition(name = "Efficiency Values of Inverter for Charging", description = "Values for the efficiency lookup-table." +
+	@AttributeDefinition(name = "Charging Inverter Efficiency Values", description = "Values for the efficiency lookup-table." +
 	            " Has to have the same amount of entries as 'Efficiency Keys'.key[i] will map to value[i]")
 	String[] chargingEfficiencyValues() default {"1.0"};
 	
 	
-	@AttributeDefinition(name="Efficiency Keys of Inverter for Discharging", description = "Keys for efficiency lookup-table based on {Power/C-Rate?}." +
+	@AttributeDefinition(name="Discharging Inverter Efficiency Keys", description = "Keys for efficiency lookup-table based on {Power/C-Rate?}." +
 	            " Has to have the same amount of entries as 'Efficiency Values'. key[i] will map to value[i]")
 	String[] dischargingEfficiencyKeys() default {"1.0"};
 	
-	@AttributeDefinition(name = "Efficiency Values of Inverter for Discharging", description = "Values for the efficiency lookup-table." +
+	@AttributeDefinition(name = "Discharging Inverter Efficiency Values", description = "Values for the efficiency lookup-table." +
 	            " Has to have the same amount of entries as 'Efficiency Keys'.key[i] will map to value[i]")
 	String[] dischargingEfficiencyValues() default {"1.0"};
 	

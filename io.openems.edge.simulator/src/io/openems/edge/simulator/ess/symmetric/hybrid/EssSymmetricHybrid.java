@@ -167,7 +167,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this.ready = responseTime == 0;
 		soCStateMachine = new SoCStateMachine(toIntArray(config.lowerSocBorder()), toIntArray(config.higherSocBorder()));
 		this.chargingEfficencyTable = new EfficiencyTable(toDoubleArray(config.chargingEfficiencyKeys()), toDoubleArray(config.chargingEfficiencyValues()));
-        this.dischargingEfficencyTable = new EfficiencyTable(toDoubleArray(config.chargingEfficiencyKeys()), toDoubleArray(config.chargingEfficiencyValues()));
+        this.dischargingEfficencyTable = new EfficiencyTable(toDoubleArray(config.dischargingEfficiencyKeys()), toDoubleArray(config.dischargingEfficiencyValues()));
         this.batteryChargingEfficiency = config.batteryChargingEfficiency();
         this.batteryDischargingEfficiency = config.batteryDischargingEfficiency();
 	}
@@ -285,7 +285,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 				+ "|L:" + this.getActivePower().asString() //
 				+ "|Allowed:" + this.getAllowedChargePower().asStringWithoutUnit() + ";"
 				+ this.getAllowedDischargePower().asString()
-				+ "|Efficiency:" + this.getEfficiencyByPower();
+				+ "|Efficiency:" + this.getEfficiencyByPower()
+				+ "|Loss:" + this.getInefficiencyLossPower() + " W";
 	}
 
 	/**
@@ -467,15 +468,6 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	        }
 	        
 	}
-	
-	public Integer getInefficiencyPowerLoss() {
-	        Integer power = this.getActivePower().get();
-	        if(power == null) {
-	                return 0;
-	        } else {
-	                return (int)(Math.abs(power)*(1d - getEfficiencyByPower()));
-	        }
-	}
 
 	private double calculateCRate(int power) throws InvalidValueException {
 	        // TODO: Might not be possible.
@@ -557,8 +549,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	        this.getEfficiencyChannel().setNextValue(efficiency);
 	        
 	        
-	        Integer activePower = this.getActivePower().get();
-	        Integer wastedPower = Math.abs(activePower - getActivePowerWithEfficiency(activePower));
+	        Integer wastedPower = getInefficiencyLossPower();
 	        this.getInefficiencyPowerLossChannel().setNextValue(wastedPower);
 	}
 	
@@ -574,8 +565,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			// calculate duration since last value
 			long duration /* [msec] */ = Duration.between(this.lastTimestamp, now).toMillis();
 			
-			Integer activePower = this.getActivePower().get();
-            activePower = getActivePowerWithEfficiency(activePower);
+			
+			Integer activePower = getActivePowerWithEfficiency();
 
 			// calculate energy since last run in [Wh]
 			long energy /* [Wmsec] */ = activePower /* [W] */ * duration /* [msec] */;
@@ -598,7 +589,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		return soc;
 	}
 	
-	private int getActivePowerWithEfficiency(Integer activePower) {
+	private int getActivePowerWithEfficiency() {
+		Integer activePower = this.getActivePower().get();
 		if (activePower == null) {
             return 0;
 	    } else if (activePower > 0) {        
@@ -607,6 +599,11 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	    } else {                                
 	    	return (int) (activePower * getEfficiencyByPower());                                
 	    }
+	}
+	
+	private int getInefficiencyLossPower() {
+		Integer activePower = this.getActivePower().get();
+        return Math.abs(activePower - getActivePowerWithEfficiency());
 	}
 
 	public void _pythonBrideSetComponentManager(ComponentManager componentManager) {
