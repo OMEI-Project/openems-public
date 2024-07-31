@@ -553,7 +553,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	
 	private void updateEfficiency() {
 	        double efficiency = this.getEfficiencyByPower();
-	        //this.getEfficiencyChannel().setNextValue(Math.round(efficiency * 100));
+	        this.getEfficiencyChannel().setNextValue(efficiency);
 	}
 	
 	public double getExactSoc() {

@@ -43,6 +43,7 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 		LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT(Doc.of(OpenemsType.INTEGER) //
 				.unit(Unit.WATT)),
 		SOC_STATE(Doc.of(SocState.values())),
+		EFFICIENCY(Doc.of(OpenemsType.DOUBLE)),
 		;
 
 
@@ -66,6 +67,10 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 	}
 	default SocState getSocState() {
 		return this.getSocStateChannel().value().asEnum();
+	}
+	
+	default Channel<Double> getEfficiencyChannel() {
+		return channel(ChannelId.EFFICIENCY);
 	}
 	
 	/**
