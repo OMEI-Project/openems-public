@@ -44,6 +44,7 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 				.unit(Unit.WATT)),
 		SOC_STATE(Doc.of(SocState.values())),
 		EFFICIENCY(Doc.of(OpenemsType.DOUBLE)),
+		INEFFICIENCY_POWER_LOSS(Doc.of(OpenemsType.INTEGER)),
 		;
 
 
@@ -71,6 +72,10 @@ public interface ManagedSymmetricEssHybrid extends ManagedSymmetricEss {
 	
 	default Channel<Double> getEfficiencyChannel() {
 		return channel(ChannelId.EFFICIENCY);
+	}
+	
+	default Channel<Integer> getInefficiencyPowerLossChannel() {
+		return channel(ChannelId.INEFFICIENCY_POWER_LOSS);
 	}
 	
 	/**

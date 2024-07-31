@@ -555,6 +555,11 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	private void updateEfficiency() {
 	        double efficiency = this.getEfficiencyByPower();
 	        this.getEfficiencyChannel().setNextValue(efficiency);
+	        
+	        
+	        Integer activePower = this.getActivePower().get();
+	        Integer wastedPower = Math.abs(activePower - getActivePowerWithEfficiency(activePower));
+	        this.getInefficiencyPowerLossChannel().setNextValue(wastedPower);
 	}
 	
 	public double getExactSoc() {
@@ -570,14 +575,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			long duration /* [msec] */ = Duration.between(this.lastTimestamp, now).toMillis();
 			
 			Integer activePower = this.getActivePower().get();
-            if (activePower == null) {
-                    activePower = 0;
-            } else if (activePower > 0) {        
-                    activePower = (int) (activePower * (1.0 / getEfficiencyByPower()));
-                    
-            } else {                                
-                    activePower = (int) (activePower * getEfficiencyByPower());                                
-            }
+            activePower = getActivePowerWithEfficiency(activePower);
 
 			// calculate energy since last run in [Wh]
 			long energy /* [Wmsec] */ = activePower /* [W] */ * duration /* [msec] */;
@@ -598,6 +596,17 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			}
 		}
 		return soc;
+	}
+	
+	private int getActivePowerWithEfficiency(Integer activePower) {
+		if (activePower == null) {
+            return 0;
+	    } else if (activePower > 0) {        
+	    	return (int) (activePower * (1.0 / getEfficiencyByPower()));
+	            
+	    } else {                                
+	    	return (int) (activePower * getEfficiencyByPower());                                
+	    }
 	}
 
 	public void _pythonBrideSetComponentManager(ComponentManager componentManager) {
