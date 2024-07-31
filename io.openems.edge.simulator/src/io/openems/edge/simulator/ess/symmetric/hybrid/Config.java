@@ -54,6 +54,29 @@ public @interface Config {
 	@AttributeDefinition(name="Allowed Charge Power", description="Maximum amount of power in [W] this ESS can be charged with. Has to be <=0", max = "0")
 	int allowedChargePower();
 	
+	@AttributeDefinition(name="Efficiency Keys of Inverter for Charging", description = "Keys for efficiency lookup-table based on {Power/C-Rate?}." +
+            " Has to have the same amount of entries as 'Efficiency Values'. key[i] will map to value[i]")
+	double[] chargingEfficiencyKeys() default {1.0};
+	
+	@AttributeDefinition(name = "Efficiency Values of Inverter for Charging", description = "Values for the efficiency lookup-table." +
+	            " Has to have the same amount of entries as 'Efficiency Keys'.key[i] will map to value[i]")
+	double[] chargingEfficiencyValues() default {1.0};
+	
+	
+	@AttributeDefinition(name="Efficiency Keys of Inverter for Discharging", description = "Keys for efficiency lookup-table based on {Power/C-Rate?}." +
+	            " Has to have the same amount of entries as 'Efficiency Values'. key[i] will map to value[i]")
+	double[] dischargingEfficiencyKeys() default {1.0};
+	
+	@AttributeDefinition(name = "Efficiency Values of Inverter for Discharging", description = "Values for the efficiency lookup-table." +
+	            " Has to have the same amount of entries as 'Efficiency Keys'.key[i] will map to value[i]")
+	double[] dischargingEfficiencyValues() default {1.0};
+	
+	@AttributeDefinition(name="Efficiency of Battery (Not Including Inverter) for Charging", description = "Efficiency as percentage.")
+	double batteryChargingEfficiency() default 1.0;
+	
+	@AttributeDefinition(name = "Efficiency of Battery (Not Including Inverter) for Discharging", description = "Efficiency as percentage.")
+	double batteryDischargingEfficiency() default 1.0;
+	
 	@AttributeDefinition(name = "Upper SoC Border", description ="Denotes SoC at which the battery will change to higher SoCState")
 	int[] higherSocBorder() default {25,50};
 

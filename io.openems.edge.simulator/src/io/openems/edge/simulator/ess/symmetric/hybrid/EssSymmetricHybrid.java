@@ -20,6 +20,7 @@ import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
 
 import io.openems.common.channel.AccessMode;
+import io.openems.common.exceptions.InvalidValueException;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.edge.common.channel.Doc;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
@@ -100,6 +101,11 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	private long energy = 0;
 	
 	private Instant lastTimestamp = null;
+	
+	private EfficiencyTable chargingEfficencyTable;
+    private EfficiencyTable dischargingEfficencyTable;
+    private double batteryChargingEfficiency;
+    private double batteryDischargingEfficiency;
 
 	@Reference
 	protected ComponentManager componentManager;
@@ -160,6 +166,10 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this.responseTime = Duration.of(config.responseTime(), ChronoUnit.MILLIS).toSeconds();
 		this.ready = responseTime == 0;
 		soCStateMachine = new SoCStateMachine(config.lowerSocBorder(), config.higherSocBorder());
+		this.chargingEfficencyTable = new EfficiencyTable(config.chargingEfficiencyKeys(), config.chargingEfficiencyValues());
+        this.dischargingEfficencyTable = new EfficiencyTable(config.chargingEfficiencyKeys(), config.chargingEfficiencyValues());
+        this.batteryChargingEfficiency = config.batteryChargingEfficiency();
+        this.batteryDischargingEfficiency = config.batteryDischargingEfficiency();
 	}
 	
 	@Override
@@ -184,6 +194,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			}
 			this.calculateEnergy();
 			this.updateSocState();
+			this.updateEfficiency();
 			this.calculatePossibleChargePower();
 			this.calculatePossibleDischargePower();
 
@@ -217,7 +228,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		 * calculate State of charge
 		 */
 		Instant now = Instant.now(this.componentManager.getClock());
-		final int soc = calculateSoc(now);
+		final int soc = (int) Math.round(calculateSoc(now));
 		this._setSoc(soc);
 		this.lastTimestamp = now;
 		
@@ -276,6 +287,13 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 				+ this.getAllowedDischargePower().asString();
 	}
 
+	/**
+     * Filters target power to be within the corridor of valid operating points of the ESSs set by the upper and lower
+     * charge discharge limits.
+     *
+     * @param targetPower
+     * @return Power value within corridor of valid operating points.
+     */
 	@Override
 	public int filterPower(int targetPower) {
 		int filteredPower = targetPower;
@@ -352,7 +370,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		int upperLimit = 0;
 		Integer  nextPower = this.getActivePowerChannel().getNextValue().get();
 		Integer soc = this.getSoc().get();
-		if(ready && nextPower != 0 && soc != null) {
+		if(ready && nextPower != null && soc != null) {
 			int dischargeLimit = getDeratedDischargePower(soc);
 			int chargeLimit = getDeratedChargePower(soc);
 			lowerLimit = max(nextPower - rampRate, chargeLimit);
@@ -423,6 +441,49 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			this.timestampStartup = Instant.now(componentManager.getClock());
 		}
 	}
+	
+	public double getEfficiencyByCRate(int power) throws InvalidValueException {
+	        return chargingEfficencyTable.getEfficiency(calculateCRate(power));
+	}
+	
+	public double getEfficiencyByPower() {
+	        Integer power = this.getActivePower().get();
+	        if(power == null) {
+	                power = 0;
+	        }
+	        // TODO: Adapt for Power/ C-Rate. Placeholder at the moment.
+	        double value = 1.0;
+	        if(power < 0){
+	                value = power / (double) this.maxChargePower;
+	        } else {
+	                value = power / (double) this.maxDischargePower;
+	        }
+	        value = max(0, min(1, value)); // Scale to [0,1]
+	        if(power < 0){
+	                return chargingEfficencyTable.getEfficiency(value) * batteryChargingEfficiency;
+	        } else {
+	                return dischargingEfficencyTable.getEfficiency(value)* batteryDischargingEfficiency;
+	        }
+	        
+	}
+	
+	public Integer getInefficiencyPowerLoss() {
+	        Integer power = this.getActivePower().get();
+	        if(power == null) {
+	                return 0;
+	        } else {
+	                return (int)(Math.abs(power)*(1d - getEfficiencyByPower()));
+	        }
+	}
+
+	private double calculateCRate(int power) throws InvalidValueException {
+	        // TODO: Might not be possible.
+	        // TODO: Insert real values, once Robert knows them.
+	        double voltage = 800.0; // Volt. Just any number.. Do we need another lookup table?.
+	        double amperage = power / voltage;
+	        double capacity = this.getCapacity().getOrError() / voltage;
+	        return amperage / capacity;
+	}
 
 	private void calculateChargeTime(int power) {
 		if(power > 0) {
@@ -465,10 +526,12 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			this.calculateDischargeEnergy.update(null);
 		} else if (activePower > 0) {
 			// Buy-From-Grid
+			activePower = (int) (activePower * (1.0 / getEfficiencyByPower()));
 			this.calculateChargeEnergy.update(0);
 			this.calculateDischargeEnergy.update(activePower);
 		} else {
 			// Sell-To-Grid
+			activePower = (int) (activePower * getEfficiencyByPower());
 			this.calculateChargeEnergy.update(activePower * -1);
 			this.calculateDischargeEnergy.update(0);
 		}
@@ -488,22 +551,41 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this.getSocStateChannel().setNextValue(soCStateMachine.getSoCState());
 	}
 	
-	private int calculateSoc(Instant now) {
-		int soc = this.config.initialSoc();
+	private void updateEfficiency() {
+	        double efficiency = this.getEfficiencyByPower();
+	        //this.getEfficiencyChannel().setNextValue(Math.round(efficiency * 100));
+	}
+	
+	public double getExactSoc() {
+	        return calculateSoc(Instant.now(this.componentManager.getClock()));
+	}
+	
+	private double calculateSoc(Instant now) {
+		double soc = this.config.initialSoc();
 		
 		// Check if this is not the initial run
 		if (this.lastTimestamp != null) {
 			// calculate duration since last value
 			long duration /* [msec] */ = Duration.between(this.lastTimestamp, now).toMillis();
+			
+			Integer activePower = this.getActivePower().get();
+            if (activePower == null) {
+                    activePower = 0;
+            } else if (activePower > 0) {        
+                    activePower = (int) (activePower * (1.0 / getEfficiencyByPower()));
+                    
+            } else {                                
+                    activePower = (int) (activePower * getEfficiencyByPower());                                
+            }
 
 			// calculate energy since last run in [Wh]
-			long energy /* [Wmsec] */ = this.getActivePower().orElse(0) /* [W] */ * duration /* [msec] */;
+			long energy /* [Wmsec] */ = activePower /* [W] */ * duration /* [msec] */;
 
 			// Adding the energy to the initial energy.
 			this.energy -= energy;
 
 			double calculatedSoc = this.energy //
-					/ (this.config.capacity() * 3600. /* [Wsec] */ * 1000 /* [Wmsec] */) //
+					/ (this.config.capacity() * 3600d /* [Wsec] */ * 1000 /* [Wmsec] */) //
 					* 100 /* [SoC] */;
 
 			if (calculatedSoc > 100) {
@@ -511,7 +593,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 			} else if (calculatedSoc < 0) {
 				soc = 0;
 			} else {
-				soc = (int) Math.round(calculatedSoc);
+				soc = calculatedSoc;
 			}
 		}
 		return soc;

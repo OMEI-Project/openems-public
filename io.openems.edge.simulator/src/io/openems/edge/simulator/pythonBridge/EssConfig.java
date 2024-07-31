@@ -19,7 +19,12 @@ public class EssConfig implements Config {
     private final int initialSoC;
     private final int allowedDischargePower;
     private final int allowedChargePower;
-
+    private final double[] chargingEfficiencyKeys;
+    private final double[] chargingEfficiencyValues;        
+    private final double[] dischargingEfficiencyKeys;
+    private final double[] dischargingEfficiencyValues;
+    private final double batteryChargingEfficiency;
+    private final double batteryDischargingEfficiency;
     private final int[] lowerSocBorder;
     private final int[] higherSocBorder;
 
@@ -27,6 +32,9 @@ public class EssConfig implements Config {
                      long responseTime, long inactivityTime,
                      int minimumSoC, int maximumSoC, int initialSoC,
                      int allowedDischargePower, int allowedChargePower,
+                     double[] chargingEfficiencyKeys, double[] chargingEfficiencyValues,
+                     double[] dischargingEfficiencyKeys, double[] dischargingEfficiencyValues,
+                     double batteryChargingEfficiency, double batteryDischargingEfficiency,
                      int[] lowerSocBorder, int[] higherSocBorder) {
         this.id = id;
         this.alias = alias;
@@ -40,6 +48,12 @@ public class EssConfig implements Config {
         this.initialSoC = initialSoC;
         this.allowedDischargePower = allowedDischargePower;
         this.allowedChargePower = allowedChargePower;
+        this.chargingEfficiencyKeys = chargingEfficiencyKeys;
+        this.chargingEfficiencyValues = chargingEfficiencyValues;
+        this.dischargingEfficiencyKeys = dischargingEfficiencyKeys;
+        this.dischargingEfficiencyValues = dischargingEfficiencyValues;
+        this.batteryChargingEfficiency = batteryChargingEfficiency;
+        this.batteryDischargingEfficiency = batteryDischargingEfficiency;
         this.lowerSocBorder = lowerSocBorder;
         this.higherSocBorder = higherSocBorder;
     }
@@ -112,6 +126,36 @@ public class EssConfig implements Config {
     public int allowedChargePower() {
         return this.allowedChargePower;
     }
+    
+    @Override
+    public double[] chargingEfficiencyKeys() {
+            return this.chargingEfficiencyKeys ;
+    }
+    
+    @Override
+    public double[] chargingEfficiencyValues() {
+            return this.chargingEfficiencyValues;
+    }
+    
+    @Override
+    public double[] dischargingEfficiencyKeys() {
+            return this.dischargingEfficiencyKeys ;
+    }
+    
+    @Override
+    public double[] dischargingEfficiencyValues() {
+            return this.dischargingEfficiencyValues;
+    }
+    
+    @Override
+	public double batteryChargingEfficiency() {
+		return this.batteryChargingEfficiency;
+	}
+
+	@Override
+	public double batteryDischargingEfficiency() {
+		return this.batteryDischargingEfficiency;
+	}
 
     @Override
     public int[] higherSocBorder() {

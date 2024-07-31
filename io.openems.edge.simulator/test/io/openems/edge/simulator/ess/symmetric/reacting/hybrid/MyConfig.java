@@ -22,6 +22,15 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private int allowedChargePower = 0;
 		private int maximumSoc = 90;
 		private int minimumSoc = 10;
+		
+		private double[] chargingEfficiencyValues = {1.0};
+        private double[] chargingEfficiencyKeys = {1.0};
+        
+        private double[] dischargingEfficiencyValues = {1.0};
+        private double[] dischargingEfficiencyKeys = {1.0};
+        
+        private double batteryChargingEfficiency = 1.0;
+        private double batteryDischargingEfficiency = 1.0;      
 
 		private Builder() {
 
@@ -79,8 +88,35 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 		public Builder setHigherSocBorder(int[] socBorder) {
 			this.higherSocBorder = socBorder;
+            return this;
+        }
+        public Builder setChargingEfficencyValues(double[] efficencyValues) {
+                this.chargingEfficiencyValues = efficencyValues;
+                return this;
+        }
+        public Builder setChargingEfficencyKeys(double[] efficencyKeys) {
+                this.chargingEfficiencyKeys = efficencyKeys;
+                return this;
+        }
+        
+        public Builder setDischargingEfficencyValues(double[] efficencyValues) {
+                this.dischargingEfficiencyValues = efficencyValues;
+                return this;
+        }
+        public Builder setDischargingEfficencyKeys(double[] efficencyKeys) {
+                this.dischargingEfficiencyKeys = efficencyKeys;
+                return this;
+        }
+        
+        public Builder setBatteryChargingEfficency(double efficency) {
+                this.batteryChargingEfficiency = efficency;
+                return this;
+        }
+        
+        public Builder setBatteryDischargingEfficency(double efficency) {
+                this.batteryDischargingEfficiency = efficency;
 			return this;
-		}
+		}		
 
 		public MyConfig build() {
 			return new MyConfig(this);
@@ -154,6 +190,36 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
+    public double[] chargingEfficiencyKeys() {
+            return this.builder.chargingEfficiencyKeys ;
+    }
+	
+    @Override
+    public double[] chargingEfficiencyValues() {
+            return this.builder.chargingEfficiencyValues;
+    }
+    
+    @Override
+    public double[] dischargingEfficiencyKeys() {
+            return this.builder.dischargingEfficiencyKeys ;
+    }
+    
+    @Override
+    public double[] dischargingEfficiencyValues() {
+            return this.builder.dischargingEfficiencyValues;
+    }
+    
+    @Override
+    public double batteryChargingEfficiency() {
+            return this.builder.batteryChargingEfficiency;
+    }
+    
+    @Override
+    public double batteryDischargingEfficiency() {
+            return this.builder.batteryDischargingEfficiency;
+    }
+    
+    @Override
 	public int[] higherSocBorder() {
 		return this.builder.higherSocBorder;
 	}
