@@ -284,7 +284,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		return "SoC:" + this.getSoc().asString() //
 				+ "|L:" + this.getActivePower().asString() //
 				+ "|Allowed:" + this.getAllowedChargePower().asStringWithoutUnit() + ";"
-				+ this.getAllowedDischargePower().asString();
+				+ this.getAllowedDischargePower().asString()
+				+ "|Efficiency:" + this.getEfficiencyByPower();
 	}
 
 	/**
