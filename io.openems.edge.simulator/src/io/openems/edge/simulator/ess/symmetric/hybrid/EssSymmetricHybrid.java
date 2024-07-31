@@ -166,13 +166,8 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 		this.responseTime = Duration.of(config.responseTime(), ChronoUnit.MILLIS).toSeconds();
 		this.ready = responseTime == 0;
 		soCStateMachine = new SoCStateMachine(toIntArray(config.lowerSocBorder()), toIntArray(config.higherSocBorder()));
-		//this.chargingEfficencyTable = new EfficiencyTable(config.chargingEfficiencyKeys(), config.chargingEfficiencyValues());
-        //this.dischargingEfficencyTable = new EfficiencyTable(config.chargingEfficiencyKeys(), config.chargingEfficiencyValues());
-		//int[] borders = {25,50};
-		//soCStateMachine = new SoCStateMachine(borders, borders);
-		double[] efficiencies = {};
-		this.chargingEfficencyTable = new EfficiencyTable(efficiencies, efficiencies);
-        this.dischargingEfficencyTable = new EfficiencyTable(efficiencies, efficiencies);
+		this.chargingEfficencyTable = new EfficiencyTable(toDoubleArray(config.chargingEfficiencyKeys()), toDoubleArray(config.chargingEfficiencyValues()));
+        this.dischargingEfficencyTable = new EfficiencyTable(toDoubleArray(config.chargingEfficiencyKeys()), toDoubleArray(config.chargingEfficiencyValues()));
         this.batteryChargingEfficiency = config.batteryChargingEfficiency();
         this.batteryDischargingEfficiency = config.batteryDischargingEfficiency();
 	}

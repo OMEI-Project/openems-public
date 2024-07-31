@@ -127,25 +127,25 @@ public class EssConfig implements Config {
         return this.allowedChargePower;
     }
     
-    /*@Override
-    public double[] chargingEfficiencyKeys() {
-            return this.chargingEfficiencyKeys ;
+    @Override
+    public String[] chargingEfficiencyKeys() {
+            return toStringArray(this.chargingEfficiencyKeys);
     }
     
     @Override
-    public double[] chargingEfficiencyValues() {
-            return this.chargingEfficiencyValues;
+    public String[] chargingEfficiencyValues() {
+            return toStringArray(this.chargingEfficiencyValues);
     }
     
     @Override
-    public double[] dischargingEfficiencyKeys() {
-            return this.dischargingEfficiencyKeys ;
+    public String[] dischargingEfficiencyKeys() {
+            return toStringArray(this.dischargingEfficiencyKeys);
     }
     
     @Override
-    public double[] dischargingEfficiencyValues() {
-            return this.dischargingEfficiencyValues;
-    }*/
+    public String[] dischargingEfficiencyValues() {
+            return toStringArray(this.dischargingEfficiencyValues);
+    }
     
     @Override
 	public double batteryChargingEfficiency() {

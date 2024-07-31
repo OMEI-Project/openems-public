@@ -189,25 +189,25 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		return this.builder.allowedChargePower;
 	}
 
-	/*@Override
-    public double[] chargingEfficiencyKeys() {
-            return this.builder.chargingEfficiencyKeys ;
+	@Override
+    public String[] chargingEfficiencyKeys() {
+            return null;
     }
 	
     @Override
-    public double[] chargingEfficiencyValues() {
-            return this.builder.chargingEfficiencyValues;
+    public String[] chargingEfficiencyValues() {
+            return null;
     }
     
     @Override
-    public double[] dischargingEfficiencyKeys() {
-            return this.builder.dischargingEfficiencyKeys ;
+    public String[] dischargingEfficiencyKeys() {
+            return null;
     }
     
     @Override
-    public double[] dischargingEfficiencyValues() {
-            return this.builder.dischargingEfficiencyValues;
-    }*/
+    public String[] dischargingEfficiencyValues() {
+            return null;
+    }
     
     @Override
     public double batteryChargingEfficiency() {
