@@ -603,6 +603,9 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	
 	private int getInefficiencyLossPower() {
 		Integer activePower = this.getActivePower().get();
+		if (activePower == null) {
+            return 0;
+	    }
         return Math.abs(activePower - getActivePowerWithEfficiency());
 	}
 
