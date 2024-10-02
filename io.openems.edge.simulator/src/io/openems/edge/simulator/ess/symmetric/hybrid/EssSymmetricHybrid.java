@@ -1,6 +1,10 @@
 package io.openems.edge.simulator.ess.symmetric.hybrid;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -216,6 +220,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 				inactivityTimestamp = null;
 			}
 		}
+		sendToFlaskServer();
 	}
 	
 	/*
@@ -280,14 +285,71 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	}
 	
 	@Override
-	public String debugLog() {
-		return "SoC:" + this.getSoc().asString() //
-				+ "|L:" + this.getActivePower().asString() //
-				+ "|Allowed:" + this.getAllowedChargePower().asStringWithoutUnit() + ";"
-				+ this.getAllowedDischargePower().asString()
-				+ "|Efficiency:" + this.getEfficiencyByPower()
-				+ "|Loss:" + this.getInefficiencyLossPower() + " W";
+    public String debugLog() {       
+        String logData = "SoC:" + this.getSoc().asString() //
+                + "|L:" + this.getActivePower().asString() //
+                + "|Allowed:" + this.getAllowedChargePower().asStringWithoutUnit() + ";"
+                + this.getAllowedDischargePower().asString()
+                + "|Efficiency:" + this.getEfficiencyByPower()
+                + "|Loss:" + this.getInefficiencyLossPower() + " W";
+
+        return logData;
+    }
+
+	private int flaskSendCounter = 0;
+	
+	private void sendToFlaskServer() {
+		
+		flaskSendCounter++;
+	    if (flaskSendCounter % 60 != 0) {
+	        // Skip sending to Flask server this cycle
+	        return;
+	    }
+	    
+		Integer soc = this.getSoc().orElse(0);
+        Integer activePower = this.getActivePower().orElse(0);
+        Integer allowedChargePower = this.getAllowedChargePower().orElse(0);
+        Integer allowedDischargePower = this.getAllowedDischargePower().orElse(0);
+        double efficiency = this.getEfficiencyByPower();
+        Integer inefficiencyLossPower = getInefficiencyLossPower();
+        Instant simulationTime = Instant.now(this.componentManager.getClock());
+        
+		if(allowedChargePower != 0) {
+	    	try {
+	    		URL url = new URL("http://127.0.0.1:5000/logdata");
+	    		HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+	    		conn.setDoOutput(true);
+	    		conn.setRequestMethod("POST");
+	    		conn.setRequestProperty("Content-Type", "application/json");
+	    		
+	    		String jsonInputString = "{"
+	    				+ "\"timestamp\":\"" + simulationTime.toString() + "\","
+	    				+ "\"soc\":" + soc + ","
+	    				+ "\"activePower\":" + activePower + ","
+	    				+ "\"allowedChargePower\":" + allowedChargePower + ","
+	    				+ "\"allowedDischargePower\":" + allowedDischargePower + ","
+	    				+ "\"efficiency\":" + efficiency + ","
+	    				+ "\"inefficiencyLossPower\":" + inefficiencyLossPower
+	    				+ "}";
+	    		
+	    		OutputStream os = conn.getOutputStream();
+	    		byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+	    		os.write(input, 0, input.length);
+	    		os.flush();
+	    		os.close();
+	    		
+	    		if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+	    			throw new RuntimeException("Failed : HTTP error code : " + conn.getResponseCode());
+	    		}
+	    		
+	    		conn.disconnect();
+	    		
+	    	} catch (Exception e) {
+	    		 this.log.error("Error sending data to Flask server: ", e);
+	    	}	    	
+	    }
 	}
+	
 
 	/**
      * Filters target power to be within the corridor of valid operating points of the ESSs set by the upper and lower
@@ -601,7 +663,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	    }
 	}
 	
-	private int getInefficiencyLossPower() {
+	public int getInefficiencyLossPower() {
 		Integer activePower = this.getActivePower().get();
 		if (activePower == null) {
             return 0;

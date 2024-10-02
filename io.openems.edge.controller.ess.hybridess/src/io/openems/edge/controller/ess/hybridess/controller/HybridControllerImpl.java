@@ -1,6 +1,11 @@
 package io.openems.edge.controller.ess.hybridess.controller;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -168,6 +173,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		int energyPrediction = getEnergyPrediction();
 		int essPower = consumption
 				- production - getPowerPrediction();
+		
 		double powerSplit = 1.0;
 		switch(gridMode) {
 		case UNDEFINED:
@@ -181,7 +187,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 
 		if(mainSocState == SocState.RED && supportSocState == SocState.RED
-				|| defaultMinimumEnergy >= totalStoredEnergy) {
+				|| defaultMinimumEnergy >= totalStoredEnergy || shouldChargeNow()) {
 
 			// Use grid to meet demand/ charge the ess as well. In case of depleted ESS or minimum energy not met.
 			essPower = consumption - (production + maxGridPower);
@@ -367,10 +373,18 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	}
 
 	private static double getPowerSplitCharging(SocState mainSocState, SocState supportSocState) {
+		if(mainSocState.isUndefined() || supportSocState.isUndefined()) {
+			//throw new IllegalArgumentException("State undefined.");
+			return 1;
+		}
 		return CHARGE_TABLE[supportSocState.getValue()][mainSocState.getValue()];
 	}
 
 	private static double getPowerSplitDischarging(SocState mainSocState, SocState supportSocState) {
+		if(mainSocState.isUndefined() || supportSocState.isUndefined()) {
+			//throw new IllegalArgumentException("State undefined.");
+			return 1;
+		}
 		return DISCHARGE_TABLE[supportSocState.getValue()][mainSocState.getValue()];
 	}
 
@@ -389,4 +403,46 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		}
 		return (int)((energyRequirement * 3600.0) / duration.toSeconds());
 	}
+	
+	private int shouldChargeCounter = 0;
+	private boolean cachedShouldCharge = false;
+	
+	private boolean shouldChargeNow() {
+		shouldChargeCounter++;
+	    if (shouldChargeCounter % 60 != 0) {
+	        // Skip sending to Flask server this cycle
+	    	return cachedShouldCharge;
+	    }
+	    
+	    try {
+	        // Get the simulation time
+	        Instant simulationTime = Instant.now(this.componentManager.getClock());
+	        String timestampParam = URLEncoder.encode(simulationTime.toString(), "UTF-8");
+
+	        // Construct the URL with the timestamp parameter
+	        URL url = new URL("http://127.0.0.1:5000/should_charge_now?timestamp=" + timestampParam);
+	        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+	        conn.setRequestMethod("GET");
+	        conn.setRequestProperty("Accept", "text/plain");
+
+	        int responseCode = conn.getResponseCode();
+	        if (responseCode != HttpURLConnection.HTTP_OK) {
+	            this.logWarn(this.log, "Failed to get shouldChargeNow: HTTP error code " + responseCode);
+	            return false; // Default to not forcing charging
+	        }
+
+	        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+	        String responseLine = in.readLine();
+	        in.close();
+	        conn.disconnect();
+
+	        // The response should be 'true' or 'false'
+	        cachedShouldCharge = "true".equalsIgnoreCase(responseLine.trim());
+	        return cachedShouldCharge;
+	    } catch (Exception e) {	        
+	        return false; // Default to not forcing charging in case of error
+	    }
+	}
+
+
 }
