@@ -36,12 +36,18 @@ public class SimulatedCycleWorker {
     private int supportActivePower;
     private int hessActivePower;
     
-    private int mainSoc;
-    private int supportSoc;
-    private int hessSoc;
+    private double mainSoc;
+    private double supportSoc;
+    private double hessSoc;
 
 	private int mainSoCState;
 	private int supportSoCState;
+	
+	private double efficiencyMain;
+	private double efficiencySupport;
+	private int inefficiencyPowerLossMain;
+	private int inefficiencyPowerLossSupport;
+	private int inefficiencyPowerLossHess;
     
     private int gridActivePower;
     
@@ -70,8 +76,8 @@ public class SimulatedCycleWorker {
 		// Write next values to channels
 		ChannelUpdater.updateChannels();
 
-		mainSoc = main.getSocChannel().getNextValue().orElse(-1);
-		supportSoc = support.getSocChannel().getNextValue().orElse(-1);
+		mainSoc = main.getExactSoc();
+		supportSoc = support.getExactSoc();
 		hessSoc = (mainSoc + supportSoc) / 2;
 
     	sum.setConsumption(consumption);
@@ -97,6 +103,13 @@ public class SimulatedCycleWorker {
 
 		mainSoCState = main.getSocState().getValue();
 		supportSoCState = support.getSocState().getValue();
+		
+		efficiencyMain = main.getEfficiencyByPower();
+		efficiencySupport = support.getEfficiencyByPower();
+		
+		inefficiencyPowerLossMain = main.getInefficiencyLossPower();
+		inefficiencyPowerLossSupport = support.getInefficiencyLossPower();
+		inefficiencyPowerLossHess = inefficiencyPowerLossMain + inefficiencyPowerLossSupport;
 
 		currentDateTime = Instant.now(clock);
 		clock.leap(1, ChronoUnit.SECONDS);
@@ -151,16 +164,36 @@ public class SimulatedCycleWorker {
 		return hessActivePower;
 	}
 
-	public int getMainSoc() {
+	public double getMainSoc() {
 		return mainSoc;
 	}
 
-	public int getSupportSoc() {
+	public double getSupportSoc() {
 		return supportSoc;
 	}
 
-	public int getHessSoc() {
+	public double getHessSoc() {
 		return hessSoc;
+	}
+	
+	public double getEfficiencyMain() {
+		return efficiencyMain;
+	}
+	
+	public double getEfficiencySupport() {
+		return efficiencySupport;
+	}
+	
+	public int getInefficiencyPowerLossMain() {
+		return inefficiencyPowerLossMain;
+	}
+	
+	public int getInefficiencyPowerLossSupport() {
+		return inefficiencyPowerLossSupport;
+	}
+	
+	public int getInefficiencyPowerLossHess() {
+		return inefficiencyPowerLossHess;
 	}
 
 	public int getGridActivePower() {
