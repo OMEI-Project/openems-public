@@ -23,7 +23,7 @@ public interface EvcsTechnagon extends OpenemsComponent {
 		EVSE_STATUS_LAST_UPDATED(Doc.of(OpenemsType.LONG).unit(Unit.SECONDS)), //
 		MIN_CURRENT(Doc.of(OpenemsType.DOUBLE).unit(Unit.AMPERE)),
 		MAX_CURRENT(Doc.of(OpenemsType.DOUBLE).unit(Unit.AMPERE)),
-		CURRENT_OFFERED(Doc.of(OpenemsType.DOUBLE).unit(Unit.AMPERE)), //
+		CURRENT_OFFERED(Doc.of(OpenemsType.DOUBLE).unit(Unit.MILLIAMPERE)), //
 		POWER_FACTOR_L1(Doc.of(OpenemsType.DOUBLE).unit(Unit.PERCENT)), //
 		POWER_FACTOR_L2(Doc.of(OpenemsType.DOUBLE).unit(Unit.PERCENT)), //
 		POWER_FACTOR_L3(Doc.of(OpenemsType.DOUBLE).unit(Unit.PERCENT)), //

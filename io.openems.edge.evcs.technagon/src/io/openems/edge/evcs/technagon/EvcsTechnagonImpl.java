@@ -64,9 +64,9 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 	private static final int REL_VOLTAGE_L1 = 11;
 	private static final int REL_VOLTAGE_L2 = 12;
 	private static final int REL_VOLTAGE_L3 = 13;
-	private static final int REL_POWER_FACTOR_L1 = 13;
-	private static final int REL_POWER_FACTOR_L2 = 13;
-	private static final int REL_POWER_FACTOR_L3 = 13;
+	private static final int REL_POWER_FACTOR_L1 = 14;
+	private static final int REL_POWER_FACTOR_L2 = 15;
+	private static final int REL_POWER_FACTOR_L3 = 16;
 	private static final int REL_CURRENT_L1 = 17;
 	private static final int REL_CURRENT_L2 = 18;
 	private static final int REL_CURRENT_L3 = 19;
@@ -82,7 +82,7 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 
 	private static final ElementToChannelConverter DEVICE_CONVERTER = new ElementToChannelConverter(deviceCode -> {
 		deviceCode = TypeUtils.<Integer>getAsType(INTEGER, deviceCode);
-		return deviceCode.equals(1) ? "TE-P5/TE-P7/TEP4/TEP4HAK/TEW3/TEW4/TEP8" : null;
+		return deviceCode.equals(0) ? "TE-P5/TE-P7/TEP4/TEP4HAK/TEW3/TEW4/TEP8" : null;
 	});
 
 	private static final ElementToChannelConverter CURRENT_LIMIT_TO_POWER_LIMIT = ElementToChannelConverter
@@ -103,7 +103,8 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 				OpenemsComponent.ChannelId.values(), //
 				ModbusComponent.ChannelId.values(), //
 				Evcs.ChannelId.values(), //
-				EvcsTechnagon.ChannelId.values() //
+				EvcsTechnagon.ChannelId.values(), //
+				ElectricityMeter.ChannelId.values() //
 		);
 	}
 
@@ -130,87 +131,119 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 	@Override
 	protected ModbusProtocol defineModbusProtocol() {
 		var cp = this.config.charging_point();
-		final var modbusProtocol = new ModbusProtocol(this, new FC3ReadRegistersTask(0, Priority.LOW,
+		final var modbusProtocol = new ModbusProtocol(this,
 
 				// EvcsTechnagon Channels
-				m(EvcsTechnagon.ChannelId.VENDOR, new StringWordElement(ABS_VENDOR, 5)),
-				m(EvcsTechnagon.ChannelId.DEVICE, new UnsignedWordElement(ABS_DEVICE_TYPE), DEVICE_CONVERTER),
-				m(EvcsTechnagon.ChannelId.MODBUS_REGISTER_LAYOUT_MAJOR_VERSION,
-						new UnsignedWordElement(ABS_LAYOUT_VERSION_MAJOR)),
-				m(EvcsTechnagon.ChannelId.MODBUS_REGISTER_LAYOUT_MINOR_VERSION,
-						new UnsignedWordElement(ABS_LAYOUT_VERSION_MINOR)),
-				m(EvcsTechnagon.ChannelId.STATION_SERIAL_NUMBER, new UnsignedDoublewordElement(ABS_STATION_SERIAL)),
-				m(EvcsTechnagon.ChannelId.STATION_MAX_CURRENT, new UnsignedWordElement(ABS_STATION_MAX_CURRENT),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_3),
-				m(EvcsTechnagon.ChannelId.NUM_EVSES, new UnsignedWordElement(ABS_NUM_EVSES)),
-				m(EvcsTechnagon.ChannelId.EVSE_SERIAL_NUMBER,
-						new UnsignedDoublewordElement(cp.applyModbusAddressOffset(REL_EVSE_SERIAL_NUMBER))),
-				m(EvcsTechnagon.ChannelId.ACTIVE_CONNECTOR,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_ACTIVE_CONNECTOR))),
-				m(EvcsTechnagon.ChannelId.RAW_STATUS,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_RAW_STATUS))),
-				m(EvcsTechnagon.ChannelId.EVSE_STATUS_LAST_UPDATED,
-						new UnsignedQuadruplewordElement(cp.applyModbusAddressOffset(REL_EVSE_STATUS_LAST_UPDATED))),
-				m(EvcsTechnagon.ChannelId.MIN_CURRENT,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MIN_CURRENT)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_3),
-				m(EvcsTechnagon.ChannelId.MAX_CURRENT,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MAX_CURRENT)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_3),
-				m(EvcsTechnagon.ChannelId.CURRENT_OFFERED,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_OFFERED)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_3),
-				m(EvcsTechnagon.ChannelId.POWER_FACTOR_L1,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L1)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_2),
-				m(EvcsTechnagon.ChannelId.POWER_FACTOR_L2,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L2)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_2),
-				m(EvcsTechnagon.ChannelId.POWER_FACTOR_L3,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L3)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_2),
-				m(EvcsTechnagon.ChannelId.FALL_BACK_CURRENT,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_FALL_BACK_CURRENT)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_2),
-				m(EvcsTechnagon.ChannelId.FALL_BACK_TIMEOUT,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_FALL_BACK_TIMEOUT)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_2),
+				new FC3ReadRegistersTask(ABS_VENDOR, Priority.LOW,
+						m(EvcsTechnagon.ChannelId.VENDOR, new StringWordElement(ABS_VENDOR, 5))),
+				new FC3ReadRegistersTask(ABS_DEVICE_TYPE, Priority.LOW,
+						m(EvcsTechnagon.ChannelId.DEVICE, new UnsignedWordElement(ABS_DEVICE_TYPE), DEVICE_CONVERTER)),
+				new FC3ReadRegistersTask(ABS_LAYOUT_VERSION_MAJOR, Priority.LOW,
+						m(EvcsTechnagon.ChannelId.MODBUS_REGISTER_LAYOUT_MAJOR_VERSION,
+								new UnsignedWordElement(ABS_LAYOUT_VERSION_MAJOR))),
+				new FC3ReadRegistersTask(ABS_LAYOUT_VERSION_MINOR, Priority.LOW,
+						m(EvcsTechnagon.ChannelId.MODBUS_REGISTER_LAYOUT_MINOR_VERSION,
+								new UnsignedWordElement(ABS_LAYOUT_VERSION_MINOR))),
+				new FC3ReadRegistersTask(ABS_STATION_SERIAL, Priority.LOW,
+						m(EvcsTechnagon.ChannelId.STATION_SERIAL_NUMBER,
+								new UnsignedDoublewordElement(ABS_STATION_SERIAL))),
+				new FC3ReadRegistersTask(ABS_STATION_MAX_CURRENT, Priority.LOW,
+						m(EvcsTechnagon.ChannelId.STATION_MAX_CURRENT, new UnsignedWordElement(ABS_STATION_MAX_CURRENT),
+								ElementToChannelConverter.SCALE_FACTOR_MINUS_3)),
+				new FC3ReadRegistersTask(ABS_NUM_EVSES, Priority.LOW,
+						m(EvcsTechnagon.ChannelId.NUM_EVSES, new UnsignedWordElement(ABS_NUM_EVSES))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_EVSE_SERIAL_NUMBER), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.EVSE_SERIAL_NUMBER,
+								new UnsignedDoublewordElement(cp.applyModbusAddressOffset(REL_EVSE_SERIAL_NUMBER)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_ACTIVE_CONNECTOR), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.ACTIVE_CONNECTOR,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_ACTIVE_CONNECTOR)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_RAW_STATUS), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.RAW_STATUS,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_RAW_STATUS)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_EVSE_STATUS_LAST_UPDATED), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.EVSE_STATUS_LAST_UPDATED,
+								new UnsignedQuadruplewordElement(
+										cp.applyModbusAddressOffset(REL_EVSE_STATUS_LAST_UPDATED)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MIN_CURRENT), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.MIN_CURRENT,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MIN_CURRENT)),
+								ElementToChannelConverter.SCALE_FACTOR_MINUS_3)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MAX_CURRENT), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.MAX_CURRENT,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MAX_CURRENT)),
+								ElementToChannelConverter.SCALE_FACTOR_MINUS_3)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_CURRENT_OFFERED), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.CURRENT_OFFERED,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_OFFERED)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L1), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.POWER_FACTOR_L1,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L1)),
+								ElementToChannelConverter.SCALE_FACTOR_MINUS_2)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L2), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.POWER_FACTOR_L2,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L2)),
+								ElementToChannelConverter.SCALE_FACTOR_MINUS_2)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L3), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.POWER_FACTOR_L3,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_FACTOR_L3)),
+								ElementToChannelConverter.SCALE_FACTOR_MINUS_2)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_FALL_BACK_CURRENT), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.FALL_BACK_CURRENT,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_FALL_BACK_CURRENT)),
+								ElementToChannelConverter.SCALE_FACTOR_MINUS_2)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_FALL_BACK_TIMEOUT), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.FALL_BACK_TIMEOUT,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_FALL_BACK_TIMEOUT)),
+								ElementToChannelConverter.SCALE_FACTOR_MINUS_2)),
 
 				// Evcs channels
-				m(Evcs.ChannelId.FIXED_MINIMUM_HARDWARE_POWER,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MIN_CURRENT)),
-						CURRENT_LIMIT_TO_POWER_LIMIT),
-				m(Evcs.ChannelId.FIXED_MAXIMUM_HARDWARE_POWER,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MAX_CURRENT)),
-						CURRENT_LIMIT_TO_POWER_LIMIT),
-				m(Evcs.ChannelId.ENERGY_SESSION, new UnsignedWordElement(cp.applyModbusAddressOffset(REL_ENERGY))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MIN_CURRENT), Priority.LOW,
+						m(Evcs.ChannelId.FIXED_MINIMUM_HARDWARE_POWER,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MIN_CURRENT)),
+								CURRENT_LIMIT_TO_POWER_LIMIT)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MAX_CURRENT), Priority.LOW,
+						m(Evcs.ChannelId.FIXED_MAXIMUM_HARDWARE_POWER,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MAX_CURRENT)),
+								CURRENT_LIMIT_TO_POWER_LIMIT)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_ENERGY), Priority.LOW,
+						m(Evcs.ChannelId.ENERGY_SESSION,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_ENERGY)))),
 
 				// Electricity meter channels
-				m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_L1))),
-				m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_L2))),
-				m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_L3))),
-				m(ElectricityMeter.ChannelId.ACTIVE_POWER,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER))),
-				m(ElectricityMeter.ChannelId.CURRENT_L1,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_L1))),
-				m(ElectricityMeter.ChannelId.CURRENT_L2,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_L2))),
-				m(ElectricityMeter.ChannelId.CURRENT_L3,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_L3))),
-				m(ElectricityMeter.ChannelId.VOLTAGE_L1,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_VOLTAGE_L1)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_1),
-				m(ElectricityMeter.ChannelId.VOLTAGE_L2,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_VOLTAGE_L2)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_1),
-				m(ElectricityMeter.ChannelId.VOLTAGE_L3,
-						new UnsignedWordElement(cp.applyModbusAddressOffset(REL_VOLTAGE_L3)),
-						ElementToChannelConverter.SCALE_FACTOR_MINUS_1)
-
-		));
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_POWER_L1), Priority.LOW,
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L1,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_L1)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_POWER_L2), Priority.LOW,
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L2,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_L2)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_POWER_L3), Priority.LOW,
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER_L3,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER_L3)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_POWER), Priority.LOW,
+						m(ElectricityMeter.ChannelId.ACTIVE_POWER,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_POWER)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_CURRENT_L1), Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L1,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_L1)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_CURRENT_L2), Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L2,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_L2)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_CURRENT_L3), Priority.LOW,
+						m(ElectricityMeter.ChannelId.CURRENT_L3,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_L3)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_VOLTAGE_L1), Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L1,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_VOLTAGE_L1)),
+								ElementToChannelConverter.SCALE_FACTOR_2)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_VOLTAGE_L2), Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L2,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_VOLTAGE_L2)),
+								ElementToChannelConverter.SCALE_FACTOR_2)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_VOLTAGE_L3), Priority.LOW,
+						m(ElectricityMeter.ChannelId.VOLTAGE_L3,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_VOLTAGE_L3)),
+								ElementToChannelConverter.SCALE_FACTOR_2)));
 
 		this.addStatusListener();
 		this.addActiveConnectorListener();
@@ -251,7 +284,7 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 
 	@Override
 	public String debugLog() {
-		return this.getStatus().getName();
+		return "Status: " + this.getStatus().getName();
 	}
 
 	@Override
