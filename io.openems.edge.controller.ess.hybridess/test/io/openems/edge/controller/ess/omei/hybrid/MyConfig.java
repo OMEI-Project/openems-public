@@ -15,6 +15,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private String powerPrediction;
 		private int defaultMinimumEnergy;
 		private int maxGridPower;
+		private String dataAcquisitionServiceBaseUrl;
 
 		private Builder() {
 		}
@@ -56,6 +57,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		
 		public Builder setMaxGridPower(int maxGridPower) {
 			this.maxGridPower = maxGridPower;
+			return this;
+		}
+
+		public Builder setDataAcquisitionServiceBaseUrl(String dataAcquisitionServiceBaseUrl) {
+			this.dataAcquisitionServiceBaseUrl = dataAcquisitionServiceBaseUrl;
 			return this;
 		}
 
@@ -118,6 +124,49 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	@Override
 	public int maxGridPower() {
 		return this.builder.maxGridPower;
+	}
+
+	@Override
+	public String dataAcquisitionServiceBaseUrl() {
+		return this.builder.dataAcquisitionServiceBaseUrl;
+	}
+
+	@Override
+	public String alias() {
+		return this.builder.id;
+	}
+
+	@Override
+	public boolean enabled() {
+		return true;
+	}
+
+	@Override
+	public String webconsole_configurationFactory_nameHint() {
+		return "Controller HybridController [{id}]";
+	}
+
+	@Override
+	public Class<? extends java.lang.annotation.Annotation> annotationType() {
+		return Config.class;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj) return true;
+		if (obj == null || getClass() != obj.getClass()) return false;
+		MyConfig myConfig = (MyConfig) obj;
+		return java.util.Objects.equals(this.builder.id, myConfig.builder.id);
+	}
+
+	@Override
+	public int hashCode() {
+		return java.util.Objects.hash(this.builder.id);
+	}
+
+	@Override
+	public String toString() {
+		return "MyConfig{id=" + this.builder.id + "}";
 	}
 
 	

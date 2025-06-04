@@ -788,6 +788,7 @@ public class HybridControllerTest {
 						.setPowerPrediction(powerPrediction.toString())
 						.setMaxGridPower(MAX_GRID_POWER)
 						.setDefaultMinimumEnergy(defaultMinimumGridPower)
+						.setDataAcquisitionServiceBaseUrl("http://127.0.0.1:5000/")
 						.build());
 	}
 

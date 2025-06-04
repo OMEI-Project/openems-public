@@ -40,6 +40,9 @@ public
 	@AttributeDefinition(name ="Maximum Grid Power", description = "Maximum power that can be drawn from grid in W.")
 	int maxGridPower() default 200_000;
 
+	@AttributeDefinition(name = "Data Acquisition Service Base URL", description = "Base URL for the external data acquisition service (e.g., http://127.0.0.1:5000/). Specific paths like '/logdata' or '/should_charge_now' will be appended.")
+	String dataAcquisitionServiceBaseUrl() default "http://127.0.0.1:5000/";
+
 	String webconsole_configurationFactory_nameHint() default "Controller HybridController [{id}]";
 
 }

@@ -12,6 +12,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.Month;
+import java.nio.charset.StandardCharsets;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -83,6 +85,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	private PredictionCSV.Row lastPowerPrediction;
 	private PredictionCSV.Row lastEnergyPrediction;
 
+	private String dataAcquisitionServiceBaseUrl;
+
 	private static final PredictionCSV.Row DUMMY_PREDICTION = new PredictionCSV.Row(
 			LocalDateTime.of(0, Month.JANUARY,1,0,0,0),
 			LocalDateTime.of(0, Month.JANUARY,1,0,0,1),
@@ -102,6 +106,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	// Percentage of mainEss's maximum power output, that mainEss should supply alone as netpower.
 	private final double netPowerThreshold = 0.8;
 
+	private int flaskSendCounter = 0;
+
 	@Reference
 	private ComponentManager componentManager;
 	
@@ -110,6 +116,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	public HybridControllerImpl(String energyPrediction, String powerPrediction,
 								int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
+								String dataAcquisitionServiceBaseUrl,
 								Sum sum, ComponentManager componentManager){
 		super(//
 				OpenemsComponent.ChannelId.values(), //
@@ -118,7 +125,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 		this.sum = sum;
 		this.componentManager = componentManager;
-		internalActivate(energyPrediction, powerPrediction, defaultMinimumEnergy, maxGridPower, mainId, supportId);
+		internalActivate(energyPrediction, powerPrediction, defaultMinimumEnergy, maxGridPower, mainId, supportId, dataAcquisitionServiceBaseUrl);
 	}
 
 	public HybridControllerImpl(){
@@ -130,13 +137,15 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	}
 
 	private void internalActivate(String energyPrediction, String powerPrediction,
-							 int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId) {
+							 int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
+							 String dataAcquisitionServiceBaseUrl) {
 		this.energyPredictionFile = Path.of(energyPrediction).toFile();
 		this.powerPredictionFile = Path.of(powerPrediction).toFile();
 		this.defaultMinimumEnergy = defaultMinimumEnergy;
 		this.maxGridPower = maxGridPower;
 		this.mainId = mainId;
 		this.supportId=supportId;
+		this.dataAcquisitionServiceBaseUrl = dataAcquisitionServiceBaseUrl;
 
 		if(!Files.exists(energyPredictionFile.toPath())) {
 			this.logInfo(log, String.format("Energy prediction at %s not found", energyPredictionFile.toPath()));
@@ -150,7 +159,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	void activate(ComponentContext context, Config config) throws OpenemsNamedException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
 		internalActivate(config.energyPrediction(), config.powerPrediction(), config.defaultMinimumEnergy(),
-				config.maxGridPower(), config.mainId(), config.supportId());
+				config.maxGridPower(), config.mainId(), config.supportId(), config.dataAcquisitionServiceBaseUrl());
 	}
 
 	@Deactivate
@@ -227,6 +236,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 		mainEss.setReactivePowerEquals(0);
 		supportEss.setReactivePowerEquals(0);
+
+		logSupportEssData(supportEss);
 	}
 
 	private void conserveRed(ManagedSymmetricEssHybrid activeEss, ManagedSymmetricEssHybrid conservedEss, SocState activeSocState)
@@ -419,8 +430,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	        Instant simulationTime = Instant.now(this.componentManager.getClock());
 	        String timestampParam = URLEncoder.encode(simulationTime.toString(), "UTF-8");
 
-	        // Construct the URL with the timestamp parameter
-	        URL url = new URL("http://127.0.0.1:5000/should_charge_now?timestamp=" + timestampParam);
+	        // Construct the URL with the timestamp parameter using dataAcquisitionServiceBaseUrl
+	        URL url = new URL(this.dataAcquisitionServiceBaseUrl + "should_charge_now?timestamp=" + timestampParam);
 	        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 	        conn.setRequestMethod("GET");
 	        conn.setRequestProperty("Accept", "text/plain");
@@ -444,5 +455,54 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	    }
 	}
 
+	private void logSupportEssData(ManagedSymmetricEssHybrid supportEss) {
+		flaskSendCounter++;
+		if (flaskSendCounter % 60 != 0) {
+			// Skip sending to Flask server this cycle
+			return;
+		}
 
+		try {
+			Integer soc = supportEss.getSoc().orElse(0);
+			Integer activePower = supportEss.getActivePower().orElse(0);
+			Integer allowedChargePower = supportEss.getAllowedChargePower().orElse(0);
+			Integer allowedDischargePower = supportEss.getAllowedDischargePower().orElse(0);
+			// Efficiency might not be directly available or meaningful in the same way as the combined EssSymmetricHybrid
+			// For now, let's send a placeholder or consider if it's needed.
+			// double efficiency = supportEss.getEfficiencyByPower(); // This method doesn't exist on ManagedSymmetricEssHybrid
+			double efficiency = 1.0; // Placeholder
+			// Integer inefficiencyLossPower = supportEss.getInefficiencyLossPower(); // This method doesn't exist
+			Integer inefficiencyLossPower = 0; // Placeholder
+			Instant simulationTime = Instant.now(this.componentManager.getClock());
+
+			URL url = new URL(this.dataAcquisitionServiceBaseUrl + "logdata");
+			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+			conn.setDoOutput(true);
+			conn.setRequestMethod("POST");
+			conn.setRequestProperty("Content-Type", "application/json");
+
+			String jsonInputString = "{"
+					+ "\"timestamp\":\"" + simulationTime.toString() + "\","
+					+ "\"soc\":" + soc + ","
+					+ "\"activePower\":" + activePower + ","
+					+ "\"allowedChargePower\":" + allowedChargePower + ","
+					+ "\"allowedDischargePower\":" + allowedDischargePower + ","
+					+ "\"efficiency\":" + efficiency + ","
+					+ "\"inefficiencyLossPower\":" + inefficiencyLossPower
+					+ "}";
+
+			OutputStream os = conn.getOutputStream();
+			byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
+			os.write(input, 0, input.length);
+			os.flush();
+			os.close();
+
+			if (conn.getResponseCode() != HttpURLConnection.HTTP_OK) {
+				this.logWarn(this.log, "Failed sending support ESS data: HTTP error code : " + conn.getResponseCode());
+			}
+			conn.disconnect();
+		} catch (Exception e) {
+			this.logWarn(this.log, "Error sending support ESS data to server: " + e.getMessage());
+		}
+	}
 }
