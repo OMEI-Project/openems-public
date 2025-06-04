@@ -6,19 +6,12 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.Month;
 import java.nio.charset.StandardCharsets;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Optional;
-
-import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV;
-import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV.Row;
 
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -41,9 +34,6 @@ import io.openems.edge.controller.api.Controller;
 import io.openems.edge.ess.api.CalculateGridMode;
 import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
 import io.openems.edge.ess.api.SocState;
-
-import static java.lang.Math.abs;
-import static java.lang.Math.max;
 
 
 @Designate(ocd = Config.class, factory = true)
@@ -79,18 +69,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	private String mainId;
 	private String supportId;
 
-	private File energyPredictionFile;
-	private File powerPredictionFile;
-
-	private PredictionCSV.Row lastPowerPrediction;
-	private PredictionCSV.Row lastEnergyPrediction;
-
 	private String dataAcquisitionServiceBaseUrl;
-
-	private static final PredictionCSV.Row DUMMY_PREDICTION = new PredictionCSV.Row(
-			LocalDateTime.of(0, Month.JANUARY,1,0,0,0),
-			LocalDateTime.of(0, Month.JANUARY,1,0,0,1),
-			0);
 	
 	/**
 	 * Minimum total Energy that should be stored by
@@ -114,8 +93,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	@Reference 
 	private Sum sum;
 
-	public HybridControllerImpl(String energyPrediction, String powerPrediction,
-								int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
+	public HybridControllerImpl(int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
 								String dataAcquisitionServiceBaseUrl,
 								Sum sum, ComponentManager componentManager){
 		super(//
@@ -125,7 +103,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 		this.sum = sum;
 		this.componentManager = componentManager;
-		internalActivate(energyPrediction, powerPrediction, defaultMinimumEnergy, maxGridPower, mainId, supportId, dataAcquisitionServiceBaseUrl);
+		internalActivate(defaultMinimumEnergy, maxGridPower, mainId, supportId, dataAcquisitionServiceBaseUrl);
 	}
 
 	public HybridControllerImpl(){
@@ -136,29 +114,19 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 	}
 
-	private void internalActivate(String energyPrediction, String powerPrediction,
-							 int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
+	private void internalActivate(int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
 							 String dataAcquisitionServiceBaseUrl) {
-		this.energyPredictionFile = Path.of(energyPrediction).toFile();
-		this.powerPredictionFile = Path.of(powerPrediction).toFile();
 		this.defaultMinimumEnergy = defaultMinimumEnergy;
 		this.maxGridPower = maxGridPower;
 		this.mainId = mainId;
 		this.supportId=supportId;
 		this.dataAcquisitionServiceBaseUrl = dataAcquisitionServiceBaseUrl;
-
-		if(!Files.exists(energyPredictionFile.toPath())) {
-			this.logInfo(log, String.format("Energy prediction at %s not found", energyPredictionFile.toPath()));
-		}
-
-		if(!Files.exists(powerPredictionFile.toPath())) {
-			this.logInfo(log, String.format("Power prediction at %s not found", powerPredictionFile.toPath()));
-		}
 	}
+	
 	@Activate
 	void activate(ComponentContext context, Config config) throws OpenemsNamedException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
-		internalActivate(config.energyPrediction(), config.powerPrediction(), config.defaultMinimumEnergy(),
+		internalActivate(config.defaultMinimumEnergy(),
 				config.maxGridPower(), config.mainId(), config.supportId(), config.dataAcquisitionServiceBaseUrl());
 	}
 
@@ -179,9 +147,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		final int consumption = sum.getConsumptionActivePower().orElse(0);
 		final int production = sum.getProductionActivePower().orElse(0);
 		int totalStoredEnergy = this.getTotalStoredEnergy(mainEss, supportEss);
-		int energyPrediction = getEnergyPrediction();
-		int essPower = consumption
-				- production - getPowerPrediction();
+		int essPower = consumption - production;
 		
 		double powerSplit = 1.0;
 		switch(gridMode) {
@@ -200,9 +166,6 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 			// Use grid to meet demand/ charge the ess as well. In case of depleted ESS or minimum energy not met.
 			essPower = consumption - (production + maxGridPower);
-		} else if (totalStoredEnergy <= energyPrediction) {
-			essPower = calculateGridSetPoint(energyPrediction, totalStoredEnergy,
-						LocalDateTime.now(componentManager.getClock())) - production;
 		} else if (mainSocState == SocState.RED) { // Special cases discharging: one ess in RED
 			conserveRed(supportEss, mainEss, supportSocState);
 			return;
@@ -298,64 +261,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		activeEss.setReactivePowerEquals(0);
 	}
 
-	/**
-	 * Determines amount of power that should be feed into or sold to grid, based on predicted supply and demand
-	 * and current Energy Prices.
-	 *
-	 * @param targetStoredEnergy Target amount of energy in [Wh] that should be stored.
-	 * @param totalStoredEnergy Amount of energy currently stored in across all ess controlles by {@code this}
-	 * @param now timestamp of this cycle.
-	 * @return Value in [W] which should be feed-in(positive) 
-	 * 	      or sold-off(negative) to grid.
-	 */
-	private int calculateGridSetPoint(int targetStoredEnergy, int totalStoredEnergy, LocalDateTime now) {
-		double missingEnergy = targetStoredEnergy - totalStoredEnergy;
-		int targetGridSetPoint = -maxGridPower;
-		if(lastEnergyPrediction != null) {
-			Duration remainingTime = Duration.between(now, lastEnergyPrediction.getEnd());
-			targetGridSetPoint = -Math.min(powerFromEnergy(missingEnergy, remainingTime), maxGridPower);
-		}
-		return targetGridSetPoint;
-	}
-
-	/**
-	 * Calculates target amount of energy that should be stored across the ESS controlled by {@code this}.
-	 * Set based on a energy prediction. Otherwise {@code defaultMinimumEnergy is used}.
-	 *
-	 * @return Target amount of energy that should be stored.
-	 */
-	private int getEnergyPrediction() {
-		if(lastEnergyPrediction == null
-				|| lastEnergyPrediction.getEnd().isBefore(LocalDateTime.now(componentManager.getClock()))) {
-			Optional<Row> prediction = getPrediction(energyPredictionFile);
-			lastEnergyPrediction = prediction.orElse(null);
-		}
-
-		return lastEnergyPrediction == null ? 0 : lastEnergyPrediction.getValue();
-	}
-
-	/**
-	 * Checks whether there exists a prediction dictating what amount of power should be drawn from grid in this cycle.
-	 * If no prediction exists for this cycle returns 0.
-	 *
-	 * @return Amount of power that should be drawn from grid based on prediction. If no prediction exist 0.
-	 */
-	private int getPowerPrediction() {
-		if(lastPowerPrediction == null
-				|| lastPowerPrediction.getEnd().isBefore(LocalDateTime.now(componentManager.getClock()))) {
-			Optional<Row> prediction = getPrediction(powerPredictionFile);
-			lastPowerPrediction = prediction.orElse(null);
-		}
-		return lastPowerPrediction == null ? 0 : lastPowerPrediction.getValue();
-	}
-
 	private boolean consumptionExceedsAvailablePower(int consumption, int gridLimit, int production, int firstEssPower, int secondEssPower) {
 		return (gridLimit + production) < consumption - firstEssPower - secondEssPower;
-	}
-
-	private Optional<Row> getPrediction(File powerPredictionFile) {
-		LocalDateTime now = LocalDateTime.now(componentManager.getClock());
-		return PredictionCSV.getPrediction(powerPredictionFile, now);
 	}
 
 	private int getTotalStoredEnergy(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
@@ -397,22 +304,6 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			return 1;
 		}
 		return DISCHARGE_TABLE[supportSocState.getValue()][mainSocState.getValue()];
-	}
-
-	/**
-	 * Calculates the amount of power required to reach {@code energyRequirement} in
-	 * time {@code duration}.
-	 * Power = energyRequirement / Duration
-	 *
-	 * @param energyRequirement target amount of power in [Wh].
-	 * @param duration	time remaining to charge/ discharge.
-	 * @return Power in [W] needed to reach {@code energyRequirement} in time {@code duration}.
-	 */
-	private int powerFromEnergy(double energyRequirement, Duration duration) {
-		if(duration == null || duration.isNegative() || duration.isZero()) {
-			return Integer.MAX_VALUE;
-		}
-		return (int)((energyRequirement * 3600.0) / duration.toSeconds());
 	}
 	
 	private int shouldChargeCounter = 0;

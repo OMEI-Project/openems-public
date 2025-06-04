@@ -27,12 +27,6 @@ public
 	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;
 	
-	@AttributeDefinition(name="Energy Prediction", description = "File path to CSVFile containing the energy prediction. Fields 'Start', 'End', 'Energy'")
-	String energyPrediction();
-	
-	@AttributeDefinition(name="Power Prediction", description = "File path to CSVFile containing the energy prediction. Fields 'Start', 'End', 'Power'")
-	String powerPrediction();
-	
 	@AttributeDefinition(name = "Default Minimum Energy", 
 			description = "Minimal total Energy in Wh that should be stored by ESSs to ensure EVs can be serviced.", min="0")
 	int defaultMinimumEnergy() default 100_000;
