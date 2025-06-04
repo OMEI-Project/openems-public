@@ -8,7 +8,8 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 	protected static class Builder {
 		private String id;
-		private String mainId;
+		// Commented out for single battery mode - can be easily reactivated
+		// private String mainId;
 		private String supportId;
 		private String meterId;
 		private String energyPrediction;
@@ -25,10 +26,13 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 		
+		// Commented out for single battery mode - can be easily reactivated
+		/*
 		public Builder setMainId(String mainId) {
 			this.mainId = mainId;
 			return this;
 		}
+		*/
 		
 		public Builder setSupportId(String supportId) {
 			this.supportId = supportId;
@@ -92,9 +96,12 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		return this.builder.id;
 	}
 
+	// Commented out for single battery mode - can be easily reactivated
+	/*
 	public String mainId() {
 		return this.builder.mainId;
 	}
+	*/
 	
 	@Override
 	public String supportId() {

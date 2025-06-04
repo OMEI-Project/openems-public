@@ -5,7 +5,7 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 
 @ObjectClassDefinition(//
 		name = "Controller HybridController", //
-		description = "Controller for Hybrid ESS consisting of one Redox-ESS and one LiOn-ESS")
+		description = "Controller for Hybrid ESS with single battery system")
 public
 @interface Config {
 
@@ -15,10 +15,11 @@ public
 	@AttributeDefinition(name = "Alias", description = "Human-readable name of this Component; defaults to Component-ID")
 	String alias() default "";
 	
-	@AttributeDefinition(name = "Main-Ess", description = "ID of Main-Ess. Ess with high capacity, providing power for netload.")
-	String mainId();
+	// Commented out for future reactivation if dual-battery mode is needed
+	// @AttributeDefinition(name = "Main-Ess", description = "ID of Main-Ess. Ess with high capacity, providing power for netload.")
+	// String mainId();
 	
-	@AttributeDefinition(name = "Support-Ess", description = "ID of Support-Ess. Ess with high power output.")
+	@AttributeDefinition(name = "Battery-Ess", description = "ID of Battery-Ess. Primary battery system.")
 	String supportId();
 
 	@AttributeDefinition(name = "Grid-Meter-ID", description = "ID of the Grid-Meter.")
@@ -28,7 +29,7 @@ public
 	boolean enabled() default true;
 	
 	@AttributeDefinition(name = "Default Minimum Energy", 
-			description = "Minimal total Energy in Wh that should be stored by ESSs to ensure EVs can be serviced.", min="0")
+			description = "Minimal total Energy in Wh that should be stored by ESS to ensure EVs can be serviced.", min="0")
 	int defaultMinimumEnergy() default 100_000;
 	
 	@AttributeDefinition(name ="Maximum Grid Power", description = "Maximum power that can be drawn from grid in W.")

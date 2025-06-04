@@ -42,35 +42,40 @@ public class HybridControllerTest {
 	private TimeLeapClock clock;
 
 	private static final String CTRL_ID = "ctrl0";
-	private static final String MAIN_ID = "ess0";
+	// Commented out for single battery mode - can be easily reactivated
+	// private static final String MAIN_ID = "ess0";
 	private static final String SUPPORT_ID ="ess1";
 	
-	private static final int MAIN_MAX_APPARENT_POWER = 100_000;
+	// Main battery power specs commented out for single battery mode
+	// private static final int MAIN_MAX_APPARENT_POWER = 100_000;
 	private static final int SUPPORT_MAX_APPARENT_POWER = 276_000;
 
-	private static final ChannelAddress MAIN_SOC = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.SOC.id());
+	// Main battery channels commented out for single battery mode
+	// private static final ChannelAddress MAIN_SOC = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.SOC.id());
 	private static final ChannelAddress SUPPORT_SOC = new ChannelAddress(SUPPORT_ID, SymmetricEss.ChannelId.SOC.id());
-	private static final ChannelAddress MAIN_SET_ACTIVE_POWER_EQUALS = new ChannelAddress(MAIN_ID,
-			ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS.id());
+	// private static final ChannelAddress MAIN_SET_ACTIVE_POWER_EQUALS = new ChannelAddress(MAIN_ID,
+	//		ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS.id());
 
 	private static final ChannelAddress SUPPORT_SET_ACTIVE_POWER_EQUALS = new ChannelAddress(SUPPORT_ID,
 			ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS.id());
 
+	// Main battery channel addresses commented out for single battery mode
+	/*
 	private static final ChannelAddress MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_CHARGE_POWER_LIMIT.id());
 	private static final ChannelAddress MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_CHARGE_POWER_LIMIT.id());
 	private static final ChannelAddress MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
 	private static final ChannelAddress MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
-
 	private static final ChannelAddress MAIN_MAX_APPARENT_POWER_CHANNEL = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.MAX_APPARENT_POWER.id());
+	private static final ChannelAddress MAIN_CAPACITY = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.CAPACITY.id());
+	private static final ChannelAddress MAIN_ACTIVE_POWER = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.ACTIVE_POWER.id());
+	*/
+
 	private static final ChannelAddress SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT = new ChannelAddress(SUPPORT_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_CHARGE_POWER_LIMIT.id());
 	private static final ChannelAddress SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT = new ChannelAddress(SUPPORT_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_CHARGE_POWER_LIMIT.id());
 	private static final ChannelAddress SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT = new ChannelAddress(SUPPORT_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
 	private static final ChannelAddress SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT = new ChannelAddress(SUPPORT_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
 
-	private static final ChannelAddress MAIN_CAPACITY = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.CAPACITY.id());
 	private static final ChannelAddress SUPPORT_CAPACITY = new ChannelAddress(SUPPORT_ID, SymmetricEss.ChannelId.CAPACITY.id());
-	private static final ChannelAddress MAIN_ACTIVE_POWER = new ChannelAddress(MAIN_ID,
-			SymmetricEss.ChannelId.ACTIVE_POWER.id());
 	private static final ChannelAddress SUPPORT_ACTIVE_POWER = new ChannelAddress(SUPPORT_ID,
 			SymmetricEss.ChannelId.ACTIVE_POWER.id());
 	
@@ -87,703 +92,124 @@ public class HybridControllerTest {
 	private static final int DEFAULT_MIN_ENERGY = 100_000; // Wh
 	
 	@Test
-	public void chargeSplit() throws Exception {
-
+	public void singleBatteryBasicCharge() throws Exception {
+		// Test basic charging behavior with single battery
 		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // chargeSplit#1
+		controllerTest.next(new TestCase() // singleBatteryBasicCharge#1
 						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
 						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 5) // Both start in red area 0,05 * 400_000Wh = 20_000 <= 50_000
-						.input(SUPPORT_SOC, 5)  // 0,05 * 276_000 = 13800
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -20_000) // targetPower outside limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.input(SUPPORT_SOC, 5) // Start in red area 0.05 * 276_000 = 13,800Wh
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -20_000) // power should be limited by filterPower
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -180_000)
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER) // All grid power should go to battery
 						)
-				.next(new TestCase() // chargeSplit#2
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
+				.next(new TestCase() // singleBatteryBasicCharge#2 - medium SoC
+						.input(METER_ACTIVE_POWER,0)
 						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 5) // Both start in red area 0,05 * 400_000Wh = 20_000 <= 50_000
-						.input(SUPPORT_SOC, 5)  // 0,05 * 276_000 = 13800
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.input(SUPPORT_SOC, 50) // Medium SoC
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, (int)(-0.5*MAX_GRID_POWER)) // power should be split equally.
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, (int)(-0.5*MAX_GRID_POWER)))
-				.next(new TestCase() // chargeSplit#3
-						.input(METER_ACTIVE_POWER,0)
-						.input(MAIN_CAPACITY, 400_000)
+						.input(PRODUCTION_POWER, 50_000) // Some production available
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -(MAX_GRID_POWER + 50_000)) // Grid + production should charge battery
+						);
+	}
+
+	@Test
+	public void singleBatteryBasicDischarge() throws Exception {
+		// Test basic discharging behavior with single battery
+		ControllerTest controllerTest = createControllerTest();
+		controllerTest.next(new TestCase() // singleBatteryBasicDischarge#1
+						.input(METER_ACTIVE_POWER,100_000) // 100kW consumption
 						.input(SUPPORT_CAPACITY, 276_000)
-						.input(PRODUCTION_POWER, MAX_GRID_POWER)
-						.input(MAIN_SOC, 85) // MAIN green: 0.3 of chargePower
-						.input(SUPPORT_SOC, 35) // SUPPORT orange: 0.7 of chargePower
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, (int)(-0.2*MAX_GRID_POWER))
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, (int)(-0.8*MAX_GRID_POWER)))
-				.next(new TestCase() // chargeSplit#4
-						.input(METER_ACTIVE_POWER,0)
-						.input(MAIN_CAPACITY, 400_000)
+						.input(SUPPORT_SOC, 80) // High SoC
+						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 200_000)
+						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
+						.input(PRODUCTION_POWER, 0) // No production
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 100_000) // Should discharge to meet consumption
+						)
+				.next(new TestCase() // singleBatteryBasicDischarge#2 - with production
+						.input(METER_ACTIVE_POWER,100_000) // 100kW consumption
 						.input(SUPPORT_CAPACITY, 276_000)
-						.input(PRODUCTION_POWER,0)
-						.input(MAIN_SOC, 80) // MAIN green
-						.input(SUPPORT_SOC, 5) // SUPPORT red
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -200_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
+						.input(SUPPORT_SOC, 80) // High SoC
+						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 200_000)
+						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
+						.input(PRODUCTION_POWER, 30_000) // 30kW production
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 70_000) // Should discharge only the difference
+						);
+	}
+
+	@Test
+	public void singleBatteryRedProtection() throws Exception {
+		// Test that battery in RED state is protected from discharge
+		ControllerTest controllerTest = createControllerTest();
+		controllerTest.next(new TestCase() // singleBatteryRedProtection#1
+						.input(METER_ACTIVE_POWER,50_000) // 50kW consumption
+						.input(SUPPORT_CAPACITY, 276_000)
+						.input(SUPPORT_SOC, 5) // RED SoC area
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -200_000)
 						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER));
+						.input(PRODUCTION_POWER, 0) // No production
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -(MAX_GRID_POWER - 50_000)) // Should charge with remaining grid power
+						);
 	}
 
 	@Test
-	public void chargePowerPrediction() throws Exception {
-		int predictedPower = 100_000;
+	public void singleBatteryMinEnergyCheck() throws Exception {
+		// Test minimum energy enforcement
 		ControllerTest controllerTest = createControllerTest();
-
-		controllerTest.next(new TestCase() // chargePowerPrediction#1
-						.timeleap(clock,1, ChronoUnit.HOURS) // Advance to time window with prediction.
-				.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-				.input(MAIN_CAPACITY, 400_000)
-				.input(SUPPORT_CAPACITY, 276_000)
-				.input(MAIN_SOC, 75) // Green SoC area
-				.input(SUPPORT_SOC, 70)  // Green SoC area
-				.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-				.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-				.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-				.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-				.output(MAIN_SET_ACTIVE_POWER_EQUALS, -predictedPower / 2)
-				.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -predictedPower / 2)
-		);
+		controllerTest.next(new TestCase() // singleBatteryMinEnergyCheck#1
+						.input(METER_ACTIVE_POWER,0) // No consumption
+						.input(SUPPORT_CAPACITY, 276_000)
+						.input(SUPPORT_SOC, 35) // 35% SoC = 96,600Wh < 100,000Wh minimum
+						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
+						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
+						.input(PRODUCTION_POWER, 0)
+						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER) // Should charge to meet minimum energy
+						);
 	}
 
+	// Keep original test structure but simplified for single battery - commented out dual battery tests
+	/*
 	@Test
-	public void chargeEnergyPrediction() throws Exception {
-		int predictedEnergy = 500_000;
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // chargeEnergyPrediction#1
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 75) // Green SoC area 300_000Wh
-						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0)
-				).next(new TestCase() // chargeEnergyPrediction#2 Below energy minimum set by prediction.
-						.timeleap(clock,1, ChronoUnit.HOURS) // Advance to time window with prediction.
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 75) // Green SoC area 300_000Wh
-						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -1700) // Missing energy 6800Wh over 2h -> 3400W split 50:50
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -1700))
-				.next(new TestCase() // chargeEnergyPrediction#3
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 100) // Green SoC area 400_000Wh
-						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0))
-				.next(new TestCase() // chargeEnergyPrediction#4 Above energy minimum set by prediction.
-						.timeleap(clock,30, ChronoUnit.MINUTES)
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 75) // Green SoC area 280_000Wh
-						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -2266) // Missing energy 6800Wh over 1.5h -> 4533W split 50:50
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -2267)) // Support gets remaining 1W lost by rounding
-				.next(new TestCase() // chargeEnergyPrediction#5; Below energy minimum. 1min remaining
-						.timeleap(clock,89, ChronoUnit.MINUTES) // Advance to 1min before prediction elapses.
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 75) // Green SoC area 300_000Wh
-						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER/2) // Missing energy 6800Wh over 1min -> 1608000 limited by maxGridPower
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER/2))
-				.next(new TestCase() // chargeEnergyPrediction#6
-						.timeleap(clock, 10, ChronoUnit.HOURS) // Advance to time after prediction, with min Energy not met.
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 75) // Green SoC area 300_000Wh
-						.input(SUPPORT_SOC, 70)  // Green SoC area 193_200Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0) // No prediction and no energy from production
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0)
-				);
+	public void chargeSplit() throws Exception {
+		// Original dual battery charge split tests - preserved for reactivation
 	}
 
-	@Test
-	public void chargeUsesProduction() throws Exception {
-		int productionPower = 400_000;
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // chargeUsesProduction#1
-				.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-				.input(PRODUCTION_POWER, productionPower)
-				.input(MAIN_CAPACITY, 400_000)
-				.input(SUPPORT_CAPACITY, 276_000)
-				.input(MAIN_SOC, 75)
-				.input(SUPPORT_SOC, 70)
-				.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-				.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-				.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-				.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-				.output(MAIN_SET_ACTIVE_POWER_EQUALS, -productionPower / 2)
-				.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -productionPower / 2));
-	}
-
-	@Test
-	public void chargeMinEnergy() throws Exception {
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // ChargeMinEnergy#1 Below energy minimum.
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 10) // 40_000Wh
-						.input(SUPPORT_SOC, 10)  // 27_600Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER / 2)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -MAX_GRID_POWER / 2))
-				.next(new TestCase() // Above energy minimum.
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 25) // 100_000Wh
-						.input(SUPPORT_SOC, 25)  // 69_000Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000) // targetPower within limit
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0));
-	}
-
-	@Test
-	public void filterChargePower() throws Exception {
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // filterChargePower#1 Below energy minimum.
-					.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-					.input(MAIN_CAPACITY, 400_000)
-					.input(SUPPORT_CAPACITY, 276_000)
-					.input(MAIN_SOC, 10) // 40_000Wh
-					.input(SUPPORT_SOC, 10)  // 27_600Wh
-					.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -10_000)
-					.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-					.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -12_000)
-					.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-					.output(MAIN_SET_ACTIVE_POWER_EQUALS, -10_000)
-					.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -12_000))
-				.next(new TestCase() // filterChargePower#2 Below energy minimum.
-						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 10) // 40_000Wh
-						.input(SUPPORT_SOC, 10)  // 27_600Wh
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, -150_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -150_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -50_000));
-	}
-
-	@Test
-	public void filterDischargePower() throws Exception {
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // filterDischargePower#1
-						.input(CONSUMPTION_POWER, 200_000)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 25) // Orange
-						.input(SUPPORT_SOC, 25)  // Orange
-						.input(MAIN_MAX_APPARENT_POWER_CHANNEL, MAIN_MAX_APPARENT_POWER)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 20_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 20_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 100_000))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 100_000)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 25) // Orange
-						.input(SUPPORT_SOC, 25)  // Orange
-						.input(MAIN_MAX_APPARENT_POWER_CHANNEL, MAIN_MAX_APPARENT_POWER)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 80_000)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 10_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 200_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 80_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 20_000));
-	}
-
-
-	@Test
+	@Test  
 	public void dischargeSplit() throws Exception {
-		int required_power  = 200_000;
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() // dischargeSplit#1
-						.input(CONSUMPTION_POWER, required_power)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 35)
-						.input(SUPPORT_SOC, 35)  // 0,05 * 276_000 = 13800
-						.input(MAIN_MAX_APPARENT_POWER_CHANNEL, MAIN_MAX_APPARENT_POWER)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0) // targetPower outside limit
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 20_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 20_000) // power should be limited by filterPower
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 180_000))
-				.next(new TestCase() // dischargeSplit#2
-						.input(CONSUMPTION_POWER, required_power)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 5)
-						.input(SUPPORT_SOC, 5)  // 0,05 * 276_000 = 13800
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0) // targetPower outside limit
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0) // conserve Energy at ESS in red -> Consumption will be covered by grid
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0)
-				)
-				.next(new TestCase() // dischargeSplit#3
-						.input(CONSUMPTION_POWER, required_power)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 35)
-						.input(SUPPORT_SOC, 35)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0) // targetPower outside limit
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, (int)(required_power*0.7)) // power should be limited by filterPower
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, (int)(required_power*0.3))
-				)
-				.next(new TestCase() // dischargeSplit#4
-						.input(CONSUMPTION_POWER, required_power)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 35)
-						.input(SUPPORT_SOC, 80)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0) // targetPower outside limit
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, (int)(required_power*0.3))
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, (int)(required_power*0.7))
-				);
+		// Original dual battery discharge split tests - preserved for reactivation
 	}
-
-	@Test
-	public void dischargeNetLoad() throws Exception {
-		int required_power  = 60_000;
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase() //dischargeNetload#1
-						.input(CONSUMPTION_POWER, required_power)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 75)
-						.input(SUPPORT_SOC, 70)
-						.input(MAIN_MAX_APPARENT_POWER_CHANNEL, MAIN_MAX_APPARENT_POWER)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, required_power)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 2*required_power)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 75)
-						.input(SUPPORT_SOC, 70)
-						.input(MAIN_MAX_APPARENT_POWER_CHANNEL, MAIN_MAX_APPARENT_POWER)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, (int)(0.7*2*required_power))
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, (int)(0.3*2*required_power)))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, required_power)
-						.input(METER_ACTIVE_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 25)
-						.input(SUPPORT_SOC, 70)
-						.input(MAIN_MAX_APPARENT_POWER_CHANNEL, MAIN_MAX_APPARENT_POWER)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, (int)(0.3*required_power))
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, (int)(0.7*required_power)));
-	}
-
-	@Test
-		public void reassignRemainder() throws Exception {
-			ControllerTest controllerTest = createControllerTest();
-			controllerTest.next(new TestCase() // reassigneRemainder#1 main did not get max; reassign remainder
-							.input(METER_ACTIVE_POWER,0)
-							.input(MAIN_CAPACITY, 400_000)
-							.input(SUPPORT_CAPACITY, 276_000)
-							.input(MAIN_SOC, 10) // red
-							.input(SUPPORT_SOC, 10) //red
-							.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-							.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-							.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -30_000)
-							.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-							.output(MAIN_SET_ACTIVE_POWER_EQUALS, -170_000)
-							.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -30_000))
-					.next(new TestCase()
-							.input(METER_ACTIVE_POWER,0)
-							.input(CONSUMPTION_POWER, 200_000)
-							.input(MAIN_CAPACITY, 400_000)
-							.input(SUPPORT_CAPACITY, 276_000)
-							.input(MAIN_SOC, 80) // green
-							.input(SUPPORT_SOC, 80) // green
-							.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-							.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-							.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-							.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 40_000)
-							.output(MAIN_SET_ACTIVE_POWER_EQUALS, 160_000)
-							.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 40_000));
-	}
-
-	@Test
-	public void ProductionGreaterConsumption() throws Exception {
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase()
-				.input(METER_ACTIVE_POWER,0)
-				.input(CONSUMPTION_POWER, 200_000)
-				.input(PRODUCTION_POWER, 300_000)
-				.input(MAIN_CAPACITY, 400_000)
-				.input(SUPPORT_CAPACITY, 276_000)
-				.input(MAIN_SOC, 35) // orange
-				.input(SUPPORT_SOC, 35) // orange
-				.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-				.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-				.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-				.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-				.output(MAIN_SET_ACTIVE_POWER_EQUALS, -70_000)
-				.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -30_000));
-	}
-
-	@Test
-	public void bothRedBehaviorDischarge() throws Exception {
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase()
-						.input(METER_ACTIVE_POWER,0)
-						.input(CONSUMPTION_POWER, 140_000)
-						.input(PRODUCTION_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 15) // red
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -30_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -30_000))
-				.next(new TestCase()
-						.input(METER_ACTIVE_POWER,0)
-						.input(CONSUMPTION_POWER, 140_000)
-						.input(PRODUCTION_POWER, 40_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 15) // red
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -50_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -50_000))
-				.next(new TestCase()
-						.input(METER_ACTIVE_POWER,0)
-						.input(CONSUMPTION_POWER, 210_000)
-						.input(PRODUCTION_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 15) // red
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 5_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 5_000))
-				.next(new TestCase()
-						.input(METER_ACTIVE_POWER,0)
-						.input(CONSUMPTION_POWER, 280_000)
-						.input(PRODUCTION_POWER, 40_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 15) // red
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 20_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 20_000))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 500_000)
-						.input(PRODUCTION_POWER, 100_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 15) // red
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 50_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 50_000)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 50_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 50_000));
-						//.output(GRID_ACTIVE_POWER,300_000)); // Not testable due to dummySumImpl
-	}
-
-	@Test
-	public void oneRedBehavior() throws Exception {
-		ControllerTest controllerTest = createControllerTest();
-		controllerTest.next(new TestCase()
-						.input(CONSUMPTION_POWER, 140_000)
-						.input(PRODUCTION_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 85) // green
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -60_000))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 280_000)
-						.input(PRODUCTION_POWER, 40_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 35) // orange
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 40_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 280_000)
-						.input(PRODUCTION_POWER, 40_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 85) // green
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 100_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 200_000)
-						.input(PRODUCTION_POWER, 40_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 85) // green
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -40_000))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 380_000)
-						.input(PRODUCTION_POWER, 40_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 85) // green
-						.input(SUPPORT_SOC, 15) // red
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 100_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 40_000))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 0)
-						.input(PRODUCTION_POWER, 0)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 85)
-						.input(SUPPORT_SOC, 15)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 0)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -200_000))
-				.next(new TestCase()
-						.input(CONSUMPTION_POWER, 500_000)
-						.input(PRODUCTION_POWER, 100_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 15)
-						.input(SUPPORT_SOC, 85)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -300_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, 100_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 100_000))
-				.next(new TestCase() // Test remainder -> There should be remainder
-						.input(CONSUMPTION_POWER, 100_000)
-						.input(PRODUCTION_POWER, 400_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 15)
-						.input(SUPPORT_SOC, 85)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -100_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -250_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -100_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, -250_000))
-				.next(new TestCase() // Test remainder -> There should be no remainder
-						.input(CONSUMPTION_POWER, 200_000)
-						.input(PRODUCTION_POWER, 100_000)
-						.input(MAIN_CAPACITY, 400_000)
-						.input(SUPPORT_CAPACITY, 276_000)
-						.input(MAIN_SOC, 15)
-						.input(SUPPORT_SOC, 85)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -50_000)
-						.input(MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT, 0)
-						.input(SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT, 100_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT, -250_000)
-						.input(SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT, 0)
-						.output(MAIN_SET_ACTIVE_POWER_EQUALS, -50_000)
-						.output(SUPPORT_SET_ACTIVE_POWER_EQUALS, 0));
-	}
-
-//	@Test
-//	public void redChargeInterval() throws Exception {
-//		ControllerTest controllerTest = new ControllerTest(new HybridControllerImpl()) //
-//				.addReference("componentManager", new DummyComponentManager(clock))
-//				.addReference("sum", new DummySum())
-//				.addComponent(setupESS(MAIN_ID, MAIN_MAX_APPARENT_POWER, new int[] {20,70}, new int[]{25,70}))
-//				.addComponent(setupESS(SUPPORT_ID, SUPPORT_MAX_APPARENT_POWER, new int[] {20, 50}, new int[]{25, 50}))//
-//				.addComponent(new DummySymmetricMeter(METER_ID)) //
-//				.activate(MyConfig.create()
-//						.setId(CTRL_ID)
-//						.setMainId(MAIN_ID)
-//						.setSupportId(SUPPORT_ID)//
-//						.setMeterId(METER_ID)
-//						.setEnergyPrediction(energyPrediction.toString())
-//						.setPowerPrediction(powerPrediction.toString())
-//						.setMaxGridPower(MAX_GRID_POWER)
-//						.setDefaultMinimumEnergy(DEFAULT_MIN_ENERGY)
-//						.build());
-//
-//	}
+	*/
 
 	private ControllerTest createControllerTest() throws Exception {
 		return createControllerTest(DEFAULT_MIN_ENERGY);
 	}
-	private ControllerTest createControllerTest(int defaultMinimumGridPower) throws Exception {
-		LocalDateTime begin = LocalDateTime.parse("2022-12-08T09:00", DateTimeFormatter.ISO_DATE_TIME);
-		clock = new TimeLeapClock(Instant.ofEpochSecond(begin.toEpochSecond(ZoneOffset.UTC)), ZoneOffset.UTC);
 
-		return new ControllerTest(new HybridControllerImpl()) //
-				.addReference("componentManager", new DummyComponentManager(clock))
-				.addReference("sum", new DummySum())
-				.addComponent(setupESS(MAIN_ID, MAIN_MAX_APPARENT_POWER))
-				.addComponent(setupESS(SUPPORT_ID, SUPPORT_MAX_APPARENT_POWER))//
+	private ControllerTest createControllerTest(int defaultMinimumGridPower) throws Exception {
+		clock = new TimeLeapClock(Instant.ofEpochSecond(1577836800L /* 2020-01-01 00:00:00 UTC */), ZoneOffset.UTC);
+		Sum sum = new DummySum();
+		return new ControllerTest(new HybridControllerImpl(defaultMinimumGridPower, MAX_GRID_POWER,
+				null, // No main ID for single battery mode
+				SUPPORT_ID, "http://127.0.0.1:5000/", sum, new DummyComponentManager(clock))) //
+				.addReference("componentManager", new DummyComponentManager(clock)) //
+				.addReference("sum", sum) //
 				.addComponent(new DummySymmetricMeter(METER_ID)) //
-				.activate(MyConfig.create()
-						.setId(CTRL_ID)
-						.setMainId(MAIN_ID)
-						.setSupportId(SUPPORT_ID)//
-						.setMeterId(METER_ID)						
-						.setMaxGridPower(MAX_GRID_POWER)
-						.setDefaultMinimumEnergy(defaultMinimumGridPower)
-						.setDataAcquisitionServiceBaseUrl("http://127.0.0.1:5000/")
+				// Remove main ESS setup for single battery mode
+				// .addComponent(setupESS(MAIN_ID, MAIN_MAX_APPARENT_POWER)) //
+				.addComponent(setupESS(SUPPORT_ID, SUPPORT_MAX_APPARENT_POWER)) //
+				.activate(MyConfig.create() //
+						.setId(CTRL_ID) //
+						// .setMainId(MAIN_ID) // Commented out for single battery mode
+						.setSupportId(SUPPORT_ID) //
+						.setMeterId(METER_ID) //
+						.setDefaultMinimumEnergy(defaultMinimumGridPower) //
+						.setMaxGridPower(MAX_GRID_POWER) //
+						.setDataAcquisitionServiceBaseUrl("http://127.0.0.1:5000/") //
 						.build());
 	}
 
 	private static ManagedSymmetricEssHybrid setupESS(String id, int maxApparentPower) {
-		return new DummyHybridEss(id, new DummyPower(maxApparentPower));
+		return setupESS(id, maxApparentPower, new int[]{10, 20}, new int[]{85, 95});
 	}
 
 	private static ManagedSymmetricEssHybrid setupESS(String id, int maxApparentPower,

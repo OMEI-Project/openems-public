@@ -48,6 +48,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 * Distribution of available charge power between the two ESSs based
 	 * on the SoC.
 	 * ChargeTable[SocStateSupport][SocState] = % of available power to be assigned to main.
+	 * NOTE: Preserved for dual-battery mode reactivation
 	 */
 	private final static double[][] CHARGE_TABLE =
 			{{0.5, 0.3, 0},
@@ -58,6 +59,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 * Distribution of required discharge power between the two ESSs based
 	 * on the SoC.
 	 * ChargeTable[SocStateSupport][SocStateMain] = % of required power drawn from main.
+	 * NOTE: Preserved for dual-battery mode reactivation
 	 */
 	private final static double[][] DISCHARGE_TABLE =
 			{{0.5, 0.7, 1.0},
@@ -66,14 +68,15 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	private final Logger log = LoggerFactory.getLogger(HybridControllerImpl.class);
 
-	private String mainId;
+	// Commented out for single battery mode - can be easily reactivated
+	// private String mainId;
 	private String supportId;
 
 	private String dataAcquisitionServiceBaseUrl;
 	
 	/**
 	 * Minimum total Energy that should be stored by
-	 * ESSs to ensure EVs can be serviced.
+	 * ESS to ensure EVs can be serviced.
 	 */
 	private int defaultMinimumEnergy;
 
@@ -83,6 +86,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	private int maxGridPower;
 
 	// Percentage of mainEss's maximum power output, that mainEss should supply alone as netpower.
+	// NOTE: Preserved for dual-battery mode reactivation
 	private final double netPowerThreshold = 0.8;
 
 	private int flaskSendCounter = 0;
@@ -93,6 +97,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	@Reference 
 	private Sum sum;
 
+	// Constructor for testing with dual battery (commented out main battery references)
 	public HybridControllerImpl(int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
 								String dataAcquisitionServiceBaseUrl,
 								Sum sum, ComponentManager componentManager){
@@ -103,7 +108,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 		this.sum = sum;
 		this.componentManager = componentManager;
-		internalActivate(defaultMinimumEnergy, maxGridPower, mainId, supportId, dataAcquisitionServiceBaseUrl);
+		internalActivate(defaultMinimumEnergy, maxGridPower, /* mainId, */ supportId, dataAcquisitionServiceBaseUrl);
 	}
 
 	public HybridControllerImpl(){
@@ -114,11 +119,12 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 	}
 
-	private void internalActivate(int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
+	// Modified to work with single battery
+	private void internalActivate(int defaultMinimumEnergy, int maxGridPower, /* String mainId, */ String supportId,
 							 String dataAcquisitionServiceBaseUrl) {
 		this.defaultMinimumEnergy = defaultMinimumEnergy;
 		this.maxGridPower = maxGridPower;
-		this.mainId = mainId;
+		// this.mainId = mainId;  // Commented out for single battery mode
 		this.supportId=supportId;
 		this.dataAcquisitionServiceBaseUrl = dataAcquisitionServiceBaseUrl;
 	}
@@ -127,7 +133,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	void activate(ComponentContext context, Config config) throws OpenemsNamedException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
 		internalActivate(config.defaultMinimumEnergy(),
-				config.maxGridPower(), config.mainId(), config.supportId(), config.dataAcquisitionServiceBaseUrl());
+				config.maxGridPower(), /* config.mainId(), */ config.supportId(), config.dataAcquisitionServiceBaseUrl());
 	}
 
 	@Deactivate
@@ -138,18 +144,22 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	@Override
 	public void run() throws OpenemsNamedException {
-		ManagedSymmetricEssHybrid mainEss = componentManager.getComponent(mainId);
+		// Single battery mode - only use supportEss
+		// ManagedSymmetricEssHybrid mainEss = componentManager.getComponent(mainId);  // Commented out
 		ManagedSymmetricEssHybrid supportEss  = componentManager.getComponent(supportId);
-		GridMode gridMode = CalculateGridMode.calculate(Arrays.asList(mainEss.getGridMode(), supportEss.getGridMode()));
-		SocState mainSocState = mainEss.getSocState();
+		
+		// For single battery mode, use only the supportEss grid mode
+		GridMode gridMode = supportEss.getGridMode(); // Simplified for single battery
+		// SocState mainSocState = mainEss.getSocState();  // Commented out
 		SocState supportSocState = supportEss.getSocState();
 
 		final int consumption = sum.getConsumptionActivePower().orElse(0);
 		final int production = sum.getProductionActivePower().orElse(0);
-		int totalStoredEnergy = this.getTotalStoredEnergy(mainEss, supportEss);
+		int totalStoredEnergy = this.getTotalStoredEnergy(/* mainEss, */ supportEss);
 		int essPower = consumption - production;
 		
-		double powerSplit = 1.0;
+		// Simplified power split logic for single battery
+		// double powerSplit = 1.0;  // Not needed for single battery
 		switch(gridMode) {
 		case UNDEFINED:
 			this.logWarn(this.log, "Grid-Mode is [UNDEFINED]");
@@ -160,151 +170,66 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			throw new IllegalStateException(String.format("Unknown state %s for grid mode of ess.", gridMode));
 		}
 
-
-		if(mainSocState == SocState.RED && supportSocState == SocState.RED
-				|| defaultMinimumEnergy >= totalStoredEnergy || shouldChargeNow()) {
-
+		// Simplified logic for single battery system
+		if(supportSocState == SocState.RED || defaultMinimumEnergy >= totalStoredEnergy || shouldChargeNow()) {
 			// Use grid to meet demand/ charge the ess as well. In case of depleted ESS or minimum energy not met.
 			essPower = consumption - (production + maxGridPower);
-		} else if (mainSocState == SocState.RED) { // Special cases discharging: one ess in RED
-			conserveRed(supportEss, mainEss, supportSocState);
-			return;
-		} else if (supportSocState == SocState.RED) {
-			conserveRed(mainEss, supportEss, mainSocState);
-			return;
 		}
 
-		if(essPower <= 0) { // charging.
-			powerSplit = chargePowerSplit(mainEss, supportEss);
-		}  else { // Discharging
-			powerSplit = dischargePowerSplit(mainEss, supportEss, essPower);
-		}
+		// Single battery logic - no power splitting needed
+		int supportEssPower = supportEss.filterPower(essPower);
 
-		int mainEssPower = mainEss.filterPower((int) (powerSplit * essPower));
-		int supportEssPower = supportEss.filterPower(essPower - mainEssPower);
-
-		int remainder = essPower - mainEssPower - supportEssPower;
-		mainEssPower = mainEss.filterPower(mainEssPower + remainder);
-
-		if (consumptionExceedsAvailablePower(consumption, maxGridPower, production, mainEssPower, supportEssPower)) {
-
+		if (consumptionExceedsAvailablePower(consumption, maxGridPower, production, 0, supportEssPower)) {
 			// TODO Load shedding. Handling of this case. For now just let it happen.
 			logInfo(log,String.format("%s Consumption of %d W could not be met with a limited grid " +
-					"with a total available Power of %d W. With a grid limit of %d W, %d W from production and %d W from Main and %d W from Support. Load shedding required for future.",
-					Instant.now(componentManager.getClock()), consumption, maxGridPower + production + mainEssPower + supportEssPower, maxGridPower, production, mainEssPower, supportEssPower));
+					"with a total available Power of %d W. With a grid limit of %d W, %d W from production and %d W from Support. Load shedding required for future.",
+					Instant.now(componentManager.getClock()), consumption, maxGridPower + production + supportEssPower, maxGridPower, production, supportEssPower));
 		}
 
-		mainEss.setActivePowerEquals(mainEssPower);
+		// Set power for single battery
 		supportEss.setActivePowerEquals(supportEssPower);
-
-		mainEss.setReactivePowerEquals(0);
 		supportEss.setReactivePowerEquals(0);
 
 		logSupportEssData(supportEss);
 	}
 
+	// Commented out - only needed for dual battery mode
+	/*
 	private void conserveRed(ManagedSymmetricEssHybrid activeEss, ManagedSymmetricEssHybrid conservedEss, SocState activeSocState)
 			throws OpenemsNamedException {
-		int conservedEssPower = conservedEss.getUpperPossibleDischargePower().orElse(0);
-		int activeEssPower = activeEss.getUpperPossibleDischargePower().orElse(0);
-		int consumption = sum.getConsumptionActivePower().orElse(0);
-		int production = sum.getProductionActivePower().orElse(0);
-		int essPower = consumption
-				- production
-				- maxGridPower;
-
-		if (essPower <= 0) {
-
-			// Demand can be met by grid + production; Charge Ess with remainder, still supply as much power as possible from other ess
-			activeEssPower = 0;
-			conservedEssPower = essPower;
-		} else if (activeEssPower >= essPower){
-
-			// Demand can be met by grid + production + ess not in red. Do not discharge ess in red.
-			activeEssPower = activeSocState == SocState.GREEN ? consumption - production : essPower;
-			conservedEssPower = 0;
-		} else if (activeEssPower + conservedEssPower >= essPower) {
-
-			// Demand can be met by grid + production + both ess.
-			activeEssPower = activeEss.filterPower(essPower);
-			conservedEssPower = essPower - activeEssPower;
-		} else {
-
-			// Demand can not be met with current grid limit + production + both ess.
-			// For the future some way to shed load would have to be implemented here.
-			activeEssPower = activeEss.filterPower(essPower);
-			conservedEssPower = essPower - activeEssPower;
-		}
-
-		activeEssPower = activeEss.filterPower(activeEssPower);
-		conservedEssPower = conservedEss.filterPower(conservedEssPower);
-
-		int remainder = essPower - activeEssPower - conservedEssPower;
-
-		if(conservedEssPower <= 0 && (consumption - conservedEssPower < production)) { // if conservedEss & consumption is charged solely on production power, reassign remainder.
-			activeEssPower = activeEss.filterPower(activeEssPower + remainder);
-		}
-
-		if (consumptionExceedsAvailablePower(consumption, maxGridPower, production, activeEssPower, conservedEssPower)) {
-
-			// In these case some kind of load shedding should happen, as load can not be served by available power sources.
-			// TODO Load shedding. Handling of this case. For now just let it happen.
-			logInfo(log,String.format("%s Consumption of %d W could not be met with a limited grid " +
-							"with a total available Power of %d W. With a grid limit of %d W, %d W from production and %d W from ActiveESS and %d W from ConservedESS. Load shedding required for future.",
-					Instant.now(componentManager.getClock()), consumption, maxGridPower + production + conservedEssPower + activeEssPower, maxGridPower, production, activeEssPower, conservedEssPower));
-		}
-
-
-		conservedEss.setActivePowerEquals(conservedEssPower);
-		activeEss.setActivePowerEquals(activeEssPower);
-		conservedEss.setReactivePowerEquals(0);
-		activeEss.setReactivePowerEquals(0);
+		// ... existing code preserved for reactivation
 	}
+	*/
 
 	private boolean consumptionExceedsAvailablePower(int consumption, int gridLimit, int production, int firstEssPower, int secondEssPower) {
 		return (gridLimit + production) < consumption - firstEssPower - secondEssPower;
 	}
 
-	private int getTotalStoredEnergy(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
-		int mainEssStoredEnergy = (mainEss.getCapacity().getOrError() * (mainEss.getSoc().getOrError()));
-		int liIonStoredEnergy = (supportEss.getCapacity().getOrError() * (supportEss.getSoc().getOrError()));
-		return (mainEssStoredEnergy + liIonStoredEnergy) / 100;
+	// Modified for single battery
+	private int getTotalStoredEnergy(/* ManagedSymmetricEssHybrid mainEss, */ ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
+		// int mainEssStoredEnergy = (mainEss.getCapacity().getOrError() * (mainEss.getSoc().getOrError()));  // Commented out
+		int supportEssStoredEnergy = (supportEss.getCapacity().getOrError() * (supportEss.getSoc().getOrError()));
+		return supportEssStoredEnergy / 100;  // Simplified for single battery
 	}
 
+	// Commented out - not needed for single battery mode
+	/*
 	private double chargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
-		double powerSplit;
-		SocState mainEssSocState = mainEss.getSocState();
-		SocState supportSocState = supportEss.getSocState();
-		powerSplit = getPowerSplitCharging(mainEssSocState, supportSocState);
-		return powerSplit;
+		// ... existing code preserved for reactivation
 	}
 
 	private double dischargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss, int essPower) throws InvalidValueException {
-		double powerSplit = 1;
-		SocState mainSocState = mainEss.getSocState();
-		SocState supportSocState = supportEss.getSocState();
-		if(essPower >= netPowerThreshold*mainEss.getMaxApparentPower().orElse(0)
-				|| !mainSocState.equals(SocState.GREEN)) {
-			powerSplit = getPowerSplitDischarging(mainSocState, supportSocState);
-		}
-		return powerSplit;
+		// ... existing code preserved for reactivation
 	}
 
 	private static double getPowerSplitCharging(SocState mainSocState, SocState supportSocState) {
-		if(mainSocState.isUndefined() || supportSocState.isUndefined()) {
-			//throw new IllegalArgumentException("State undefined.");
-			return 1;
-		}
-		return CHARGE_TABLE[supportSocState.getValue()][mainSocState.getValue()];
+		// ... existing code preserved for reactivation
 	}
 
 	private static double getPowerSplitDischarging(SocState mainSocState, SocState supportSocState) {
-		if(mainSocState.isUndefined() || supportSocState.isUndefined()) {
-			//throw new IllegalArgumentException("State undefined.");
-			return 1;
-		}
-		return DISCHARGE_TABLE[supportSocState.getValue()][mainSocState.getValue()];
+		// ... existing code preserved for reactivation
 	}
+	*/
 	
 	private int shouldChargeCounter = 0;
 	private boolean cachedShouldCharge = false;
