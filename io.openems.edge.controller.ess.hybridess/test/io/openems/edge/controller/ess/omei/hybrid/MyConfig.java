@@ -107,16 +107,6 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	}
 
 	@Override
-	public String energyPrediction() {
-		return this.builder.energyPrediction;
-	}
-
-	@Override
-	public String powerPrediction() {
-		return this.builder.powerPrediction;
-	}
-
-	@Override
 	public int defaultMinimumEnergy() {
 		return this.builder.defaultMinimumEnergy;
 	}

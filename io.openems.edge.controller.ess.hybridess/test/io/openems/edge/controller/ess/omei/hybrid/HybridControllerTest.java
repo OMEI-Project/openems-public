@@ -7,7 +7,6 @@ import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.common.test.TimeLeapClock;
 import io.openems.edge.controller.ess.hybridess.controller.HybridControllerImpl;
-import io.openems.edge.controller.ess.hybridess.prediction.PredictionCSV;
 import io.openems.edge.controller.test.ControllerTest;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
@@ -37,10 +36,8 @@ public class HybridControllerTest {
 
 	@Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
-	private static final String FOLDER = "CSVUtils";
 	private Path energyPrediction;
 	private Path powerPrediction;
-	private static File tempDir;
 
 	private TimeLeapClock clock;
 
@@ -151,7 +148,6 @@ public class HybridControllerTest {
 	public void chargePowerPrediction() throws Exception {
 		int predictedPower = 100_000;
 		ControllerTest controllerTest = createControllerTest();
-		addPrediction("2022-12-08T10:00","2022-12-08T12:00", predictedPower, powerPrediction);
 
 		controllerTest.next(new TestCase() // chargePowerPrediction#1
 						.timeleap(clock,1, ChronoUnit.HOURS) // Advance to time window with prediction.
@@ -173,7 +169,6 @@ public class HybridControllerTest {
 	public void chargeEnergyPrediction() throws Exception {
 		int predictedEnergy = 500_000;
 		ControllerTest controllerTest = createControllerTest();
-		addPrediction("2022-12-08T10:00","2022-12-08T12:00", predictedEnergy, energyPrediction);
 		controllerTest.next(new TestCase() // chargeEnergyPrediction#1
 						.input(METER_ACTIVE_POWER,0) // Set consumption to 0
 						.input(MAIN_CAPACITY, 400_000)
@@ -770,9 +765,6 @@ public class HybridControllerTest {
 		LocalDateTime begin = LocalDateTime.parse("2022-12-08T09:00", DateTimeFormatter.ISO_DATE_TIME);
 		clock = new TimeLeapClock(Instant.ofEpochSecond(begin.toEpochSecond(ZoneOffset.UTC)), ZoneOffset.UTC);
 
-		energyPrediction = createPredictionFile("energyPrediction.csv");
-		powerPrediction = createPredictionFile("powerPrediction.csv");
-
 		return new ControllerTest(new HybridControllerImpl()) //
 				.addReference("componentManager", new DummyComponentManager(clock))
 				.addReference("sum", new DummySum())
@@ -783,9 +775,7 @@ public class HybridControllerTest {
 						.setId(CTRL_ID)
 						.setMainId(MAIN_ID)
 						.setSupportId(SUPPORT_ID)//
-						.setMeterId(METER_ID)
-						.setEnergyPrediction(energyPrediction.toString())
-						.setPowerPrediction(powerPrediction.toString())
+						.setMeterId(METER_ID)						
 						.setMaxGridPower(MAX_GRID_POWER)
 						.setDefaultMinimumEnergy(defaultMinimumGridPower)
 						.setDataAcquisitionServiceBaseUrl("http://127.0.0.1:5000/")
@@ -799,36 +789,6 @@ public class HybridControllerTest {
 	private static ManagedSymmetricEssHybrid setupESS(String id, int maxApparentPower,
 													  int[] lowerSocBorder, int[] upperSocBorder) {
 		return new DummyHybridEss(id, new DummyPower(maxApparentPower), lowerSocBorder, upperSocBorder);
-	}
-
-	private void addPrediction(String start, String end, int value, Path filepath) throws IOException {
-		if(!Files.exists(tempDir.toPath()) || !Files.exists(filepath)) {
-			fail(String.format("Could not find %s", filepath.toString()));
-		}
-
-		StringJoiner row = new StringJoiner(PredictionCSV.SEPARATOR);
-		row.add(start).add(end).add(String.valueOf(value));
-		Files.writeString(filepath,String.format("%s%s",row.toString(), System.lineSeparator()), StandardOpenOption.APPEND);
-	}
-
-	private Path createPredictionFile(String filename) throws IOException {
-		try {
-			tempDir = tempFolder.newFolder(FOLDER);
-		} catch (IOException e) {
-			if(!Files.exists(tempDir.toPath())) {
-				throw e;
-			}
-			// Else Folder already exists -> ignore exception.
-		}
-
-		File predictionCSV = tempFolder.newFile(filename);
-
-		StringJoiner fieldNames = new StringJoiner(PredictionCSV.SEPARATOR);
-		fieldNames.add("START").add("END").add("VALUE");
-		Files.writeString(predictionCSV.toPath(), fieldNames + System.lineSeparator(),
-				StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-
-		return predictionCSV.toPath();
 	}
 
 }
