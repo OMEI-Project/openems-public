@@ -205,6 +205,7 @@ public class HybridControllerTest {
 						.setDefaultMinimumEnergy(defaultMinimumGridPower) //
 						.setMaxGridPower(MAX_GRID_POWER) //
 						.setDataAcquisitionServiceBaseUrl("http://127.0.0.1:5000/") //
+						.setDataServiceInterval(10) // Use default interval for tests
 						.build());
 	}
 

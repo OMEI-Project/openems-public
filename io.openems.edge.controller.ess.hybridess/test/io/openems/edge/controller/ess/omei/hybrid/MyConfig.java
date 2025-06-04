@@ -17,6 +17,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private int defaultMinimumEnergy;
 		private int maxGridPower;
 		private String dataAcquisitionServiceBaseUrl;
+		private int dataServiceInterval;
 
 		private Builder() {
 		}
@@ -66,6 +67,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 		public Builder setDataAcquisitionServiceBaseUrl(String dataAcquisitionServiceBaseUrl) {
 			this.dataAcquisitionServiceBaseUrl = dataAcquisitionServiceBaseUrl;
+			return this;
+		}
+
+		public Builder setDataServiceInterval(int dataServiceInterval) {
+			this.dataServiceInterval = dataServiceInterval;
 			return this;
 		}
 
@@ -126,6 +132,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	@Override
 	public String dataAcquisitionServiceBaseUrl() {
 		return this.builder.dataAcquisitionServiceBaseUrl;
+	}
+
+	@Override
+	public int dataServiceInterval() {
+		return this.builder.dataServiceInterval;
 	}
 
 	@Override

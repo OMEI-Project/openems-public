@@ -19,7 +19,7 @@ public
 	// @AttributeDefinition(name = "Main-Ess", description = "ID of Main-Ess. Ess with high capacity, providing power for netload.")
 	// String mainId();
 	
-	@AttributeDefinition(name = "Support-Ess", description = "ID of Support-Ess (Lithium Battery)")
+	@AttributeDefinition(name = "Battery-Ess", description = "ID of Battery-Ess. Primary battery system.")
 	String supportId();
 
 	@AttributeDefinition(name = "Grid-Meter-ID", description = "ID of the Grid-Meter.")
@@ -35,8 +35,12 @@ public
 	@AttributeDefinition(name ="Maximum Grid Power", description = "Maximum power that can be drawn from grid in W.")
 	int maxGridPower() default 200_000;
 
-	@AttributeDefinition(name = "Data Acquisition URL", description = "Base URL for the external data acquisition service (e.g., http://127.0.0.1:5000/). Specific paths like '/logdata' or '/should_charge_now' will be appended.")
+	@AttributeDefinition(name = "Data Acquisition Service Base URL", description = "Base URL for the external data acquisition service (e.g., http://127.0.0.1:5000/). Specific paths like '/logdata' or '/should_charge_now' will be appended.")
 	String dataAcquisitionServiceBaseUrl() default "http://127.0.0.1:5000/";
+
+	@AttributeDefinition(name = "Data Service Communication Interval", 
+			description = "Interval in controller cycles between communications with the data acquisition service (for both fetching and posting data).", min="1")
+	int dataServiceInterval() default 10;
 
 	String webconsole_configurationFactory_nameHint() default "Controller HybridController [{id}]";
 

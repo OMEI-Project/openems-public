@@ -85,6 +85,11 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 */
 	private int maxGridPower;
 
+	/**
+	 * Interval in controller cycles between communications with the data acquisition service.
+	 */
+	private int dataServiceInterval;
+
 	// Percentage of mainEss's maximum power output, that mainEss should supply alone as netpower.
 	// NOTE: Preserved for dual-battery mode reactivation
 	private final double netPowerThreshold = 0.8;
@@ -108,7 +113,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 		this.sum = sum;
 		this.componentManager = componentManager;
-		internalActivate(defaultMinimumEnergy, maxGridPower, /* mainId, */ supportId, dataAcquisitionServiceBaseUrl);
+		internalActivate(defaultMinimumEnergy, maxGridPower, /* mainId, */ supportId, dataAcquisitionServiceBaseUrl, 10);
 	}
 
 	public HybridControllerImpl(){
@@ -121,19 +126,20 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	// Modified to work with single battery
 	private void internalActivate(int defaultMinimumEnergy, int maxGridPower, /* String mainId, */ String supportId,
-							 String dataAcquisitionServiceBaseUrl) {
+							 String dataAcquisitionServiceBaseUrl, int dataServiceInterval) {
 		this.defaultMinimumEnergy = defaultMinimumEnergy;
 		this.maxGridPower = maxGridPower;
 		// this.mainId = mainId;  // Commented out for single battery mode
 		this.supportId=supportId;
 		this.dataAcquisitionServiceBaseUrl = dataAcquisitionServiceBaseUrl;
+		this.dataServiceInterval = dataServiceInterval;
 	}
 	
 	@Activate
 	void activate(ComponentContext context, Config config) throws OpenemsNamedException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
 		internalActivate(config.defaultMinimumEnergy(),
-				config.maxGridPower(), /* config.mainId(), */ config.supportId(), config.dataAcquisitionServiceBaseUrl());
+				config.maxGridPower(), /* config.mainId(), */ config.supportId(), config.dataAcquisitionServiceBaseUrl(), config.dataServiceInterval());
 	}
 
 	@Deactivate
@@ -236,7 +242,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	
 	private boolean shouldChargeNow() {
 		shouldChargeCounter++;
-	    if (shouldChargeCounter % 10 != 0) {
+	    if (shouldChargeCounter % dataServiceInterval != 0) {
 	        // Skip sending to Flask server this cycle
 	    	return cachedShouldCharge;
 	    }
@@ -297,7 +303,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	private void logSupportEssData(ManagedSymmetricEssHybrid supportEss) {
 		flaskSendCounter++;
-		if (flaskSendCounter % 10 != 0) {
+		if (flaskSendCounter % dataServiceInterval != 0) {
 			// Skip sending to Flask server this cycle
 			return;
 		}
