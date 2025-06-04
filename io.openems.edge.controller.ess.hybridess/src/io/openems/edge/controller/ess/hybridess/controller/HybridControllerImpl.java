@@ -273,7 +273,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	private void logSupportEssData(ManagedSymmetricEssHybrid supportEss) {
 		flaskSendCounter++;
-		if (flaskSendCounter % 60 != 0) {
+		if (flaskSendCounter % 10 != 0) {
 			// Skip sending to Flask server this cycle
 			return;
 		}
