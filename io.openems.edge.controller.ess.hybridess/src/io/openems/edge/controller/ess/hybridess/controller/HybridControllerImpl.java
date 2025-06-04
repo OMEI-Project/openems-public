@@ -236,7 +236,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	
 	private boolean shouldChargeNow() {
 		shouldChargeCounter++;
-	    if (shouldChargeCounter % 60 != 0) {
+	    if (shouldChargeCounter % 10 != 0) {
 	        // Skip sending to Flask server this cycle
 	    	return cachedShouldCharge;
 	    }
@@ -259,12 +259,36 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	        }
 
 	        BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-	        String responseLine = in.readLine();
+	        StringBuilder responseBuilder = new StringBuilder();
+	        String line;
+	        while ((line = in.readLine()) != null) {
+	            responseBuilder.append(line);
+	        }
 	        in.close();
 	        conn.disconnect();
 
-	        // The response should be 'true' or 'false'
-	        cachedShouldCharge = "true".equalsIgnoreCase(responseLine.trim());
+	        String response = responseBuilder.toString().trim();
+	        boolean parsedResult = false;
+
+	        // JSON parsing assuming the format is: {"should_charge":true}
+	        if (response.startsWith("{") && response.endsWith("}")) {
+	            int keyIndex = response.indexOf("\"should_charge\"");
+	            if (keyIndex != -1) {
+	                int colonIndex = response.indexOf(":", keyIndex);
+	                if (colonIndex != -1) {
+	                    String valuePart = response.substring(colonIndex + 1).trim();
+	                    // Remove trailing } if it's still there
+	                    if (valuePart.endsWith("}")) {
+	                        valuePart = valuePart.substring(0, valuePart.length() - 1).trim();
+	                    }
+	                    // Parse boolean value
+	                    parsedResult = valuePart.equalsIgnoreCase("true");
+	                }
+	            }
+	        }
+
+	        cachedShouldCharge = parsedResult;
+	        this.logWarn(this.log, "Response shouldChargeNow: " + response + " (bool: " + cachedShouldCharge + ")");
 	        return cachedShouldCharge;
 	    } catch (Exception e) {	        
 	        return false; // Default to not forcing charging in case of error
