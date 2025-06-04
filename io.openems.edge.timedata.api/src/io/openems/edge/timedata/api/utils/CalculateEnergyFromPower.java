@@ -1,5 +1,6 @@
 package io.openems.edge.timedata.api.utils;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -15,12 +16,11 @@ import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 
 /**
- * Calculates the value for energy channels in [Wh] from Power values in [W].
+ * Calculates the value for energy channels in [Wh_Σ] from Power values in [W].
  *
  * <p>
- * This is commonly used to calculate SymmetricEss or SymmetricMeter
- * ActiveChargePower and ActiveDischargePower from ActivePower channels. To use
- * it, you have to:
+ * This is commonly used by SymmetricEss or ElectricityMeter to calculate energy
+ * channels from power channels. To use it, you have to:
  *
  * <ol>
  * <li>Make your OpenemsComponent implement {@link TimedataProvider}:
@@ -104,18 +104,16 @@ public class CalculateEnergyFromPower {
 	 */
 	private Integer lastPower = null;
 
-	private final ComponentManager componentManager;
+	private final Clock clock;
 
 	public CalculateEnergyFromPower(TimedataProvider component, ChannelId channelId) {
-		this.component = component;
-		this.channelId = channelId;
-		componentManager = new DummyComponentManager();
+		this(component, channelId, Clock.systemDefaultZone());
 	}
 
-	public CalculateEnergyFromPower(TimedataProvider component, ComponentManager componentManager, ChannelId channelId) {
+	public CalculateEnergyFromPower(TimedataProvider component, ChannelId channelId, Clock clock) {
 		this.component = component;
 		this.channelId = channelId;
-		this.componentManager = componentManager;
+		this.clock = clock;
 	}
 
 	/**
@@ -139,7 +137,7 @@ public class CalculateEnergyFromPower {
 		}
 
 		// keep last data for next run
-		this.lastTimestamp = Instant.now(componentManager.getClock());
+		this.lastTimestamp = Instant.now(this.clock);
 		this.lastPower = power;
 	}
 
@@ -184,7 +182,7 @@ public class CalculateEnergyFromPower {
 
 		} else {
 			// calculate duration since last value
-			var duration /* [msec] */ = Duration.between(this.lastTimestamp, Instant.now(componentManager.getClock())).toMillis();
+			var duration /* [msec] */ = Duration.between(this.lastTimestamp, Instant.now(this.clock)).toMillis();
 
 			// calculate energy since last run in [Wmsec]
 			var continuousEnergy /* [Wmsec] */ = this.lastPower /* [W] */ * duration /* [msec] */;
@@ -201,5 +199,18 @@ public class CalculateEnergyFromPower {
 
 		// update 'cumulatedEnergy'
 		this.component.channel(this.channelId).setNextValue(this.baseCumulatedEnergy);
+	}
+
+	/**
+	 * Set baseEnergy manually.
+	 * 
+	 * <p>
+	 * Set baseEnergy manually & go to CALCULATE_ENERGY_OPERATION
+	 * 
+	 * @param baseCumulatedEnergy baseCumulatedEnergy
+	 */
+	public void setBaseEnergyManually(long baseCumulatedEnergy) {
+		this.baseCumulatedEnergy = baseCumulatedEnergy;
+		this.state = State.CALCULATE_ENERGY_OPERATION;
 	}
 }
