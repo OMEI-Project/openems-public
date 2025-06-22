@@ -2,6 +2,7 @@ package io.openems.edge.evcs.technagon;
 
 import io.openems.common.test.AbstractComponentConfig;
 import io.openems.common.utils.ConfigUtils;
+import io.openems.edge.evcs.technagon.enums.TechnagonChargingPoint;
 
 @SuppressWarnings("all")
 public class MyConfig extends AbstractComponentConfig implements Config {
@@ -10,6 +11,10 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private String id;
 		private String modbusId = null;
 		private int modbusUnitId;
+		private boolean debugMode;
+		private boolean readOnly;
+		private int minHwCurrent;
+		private int maxHwCurrent;
 		private TechnagonChargingPoint chargingPoint;
 
 		private Builder() {
@@ -37,6 +42,26 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 		public MyConfig build() {
 			return new MyConfig(this);
+		}
+		
+		public Builder setDebugMode(boolean debugMode) {
+			this.debugMode = debugMode;
+			return this;
+		}
+		
+		public Builder setReadOnly(boolean readOnly) {
+			this.readOnly = readOnly;
+			return this;
+		}
+		
+		public Builder setMinHwCurrent(int minHwCurrent) {
+			this.minHwCurrent = minHwCurrent;
+			return this;
+		}
+		
+		public Builder setMaxHwCurrent(int maxHwCurrent) {
+			this.maxHwCurrent = maxHwCurrent;
+			return this;
 		}
 	}
 
@@ -76,5 +101,23 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		return this.builder.chargingPoint;
 	}
 
+	@Override
+	public boolean debugMode() {
+		return this.builder.debugMode;
+	}
 
+	@Override
+	public boolean readOnly() {
+		return this.builder.readOnly;
+	}
+
+	@Override
+	public int minHwCurrent() {
+		return this.builder.minHwCurrent;
+	}
+
+	@Override
+	public int maxHwCurrent() {
+		return this.builder.maxHwCurrent;
+	}
 }

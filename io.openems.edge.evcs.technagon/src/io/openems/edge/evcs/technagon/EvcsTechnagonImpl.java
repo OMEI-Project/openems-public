@@ -8,12 +8,19 @@ import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.ConfigurationPolicy;
 import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.component.annotations.ReferencePolicyOption;
+import org.osgi.service.event.Event;
+import org.osgi.service.event.EventHandler;
+import org.osgi.service.event.propertytypes.EventTopics;
 import org.osgi.service.metatype.annotations.Designate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.common.exceptions.OpenemsException;
 import io.openems.common.types.MeterType;
 import io.openems.edge.bridge.modbus.api.AbstractOpenemsModbusComponent;
@@ -26,13 +33,22 @@ import io.openems.edge.bridge.modbus.api.element.UnsignedDoublewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedQuadruplewordElement;
 import io.openems.edge.bridge.modbus.api.element.UnsignedWordElement;
 import io.openems.edge.bridge.modbus.api.task.FC3ReadRegistersTask;
+import io.openems.edge.bridge.modbus.api.task.FC6WriteRegisterTask;
 import io.openems.edge.common.component.OpenemsComponent;
+import io.openems.edge.common.event.EdgeEventConstants;
 import io.openems.edge.common.taskmanager.Priority;
 import io.openems.edge.common.type.TypeUtils;
+import io.openems.edge.evcs.api.ChargeStateHandler;
 import io.openems.edge.evcs.api.ChargingType;
 import io.openems.edge.evcs.api.Evcs;
+import io.openems.edge.evcs.api.EvcsPower;
+import io.openems.edge.evcs.api.ManagedEvcs;
 import io.openems.edge.evcs.api.PhaseRotation;
+import io.openems.edge.evcs.api.Phases;
 import io.openems.edge.evcs.api.Status;
+import io.openems.edge.evcs.api.WriteHandler;
+import io.openems.edge.evcs.technagon.enums.TechnagonConnectorType;
+import io.openems.edge.evcs.technagon.enums.TechnagonState;
 import io.openems.edge.meter.api.ElectricityMeter;
 
 @Designate(ocd = Config.class, factory = true)
@@ -41,8 +57,11 @@ import io.openems.edge.meter.api.ElectricityMeter;
 		immediate = true, //
 		configurationPolicy = ConfigurationPolicy.REQUIRE //
 )
+@EventTopics({ //
+		EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE, //
+})
 public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
-		implements EvcsTechnagon, Evcs, ElectricityMeter, ModbusComponent, OpenemsComponent {
+		implements EvcsTechnagon, ManagedEvcs, EventHandler, Evcs, ElectricityMeter, ModbusComponent, OpenemsComponent {
 
 	/* Global station‑wide registers (absolute addresses) */
 	private static final int ABS_VENDOR = 0;
@@ -58,8 +77,8 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 	private static final int REL_ACTIVE_CONNECTOR = 2;
 	private static final int REL_RAW_STATUS = 3;
 	private static final int REL_EVSE_STATUS_LAST_UPDATED = 4;
-	private static final int REL_MIN_CURRENT = 8;
-	private static final int REL_MAX_CURRENT = 9;
+	private static final int REL_MIN_CHARHING_CURRENT = 8;
+	private static final int REL_MAX_CHARGING_CURRENT = 9;
 	private static final int REL_CURRENT_OFFERED = 10;
 	private static final int REL_VOLTAGE_L1 = 11;
 	private static final int REL_VOLTAGE_L2 = 12;
@@ -75,18 +94,30 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 	private static final int REL_POWER_L3 = 22;
 	private static final int REL_POWER = 23;
 	private static final int REL_ENERGY = 24;
-	private static final int REL_SET_CURRENT_BP = 256; // write registers not yet implemented
-	private static final int REL_SET_CURRENT_MA = 257; // write registers not yet implemented
+	private static final int REL_SET_CURRENT_MA = 257;
 	private static final int REL_FALL_BACK_CURRENT = 258;
 	private static final int REL_FALL_BACK_TIMEOUT = 259;
 
 	private static final ElementToChannelConverter DEVICE_CONVERTER = new ElementToChannelConverter(deviceCode -> {
+		if (deviceCode == null) {
+			return null;
+		}
+
 		deviceCode = TypeUtils.<Integer>getAsType(INTEGER, deviceCode);
 		return deviceCode.equals(0) ? "TE-P5/TE-P7/TEP4/TEP4HAK/TEW3/TEW4/TEP8" : null;
 	});
 
-	private static final ElementToChannelConverter CURRENT_LIMIT_TO_POWER_LIMIT = ElementToChannelConverter
-			.chain(ElementToChannelConverter.SCALE_FACTOR_MINUS_3, ElementToChannelConverter.MULTIPLY(DEFAULT_VOLTAGE));
+	private final Logger log = LoggerFactory.getLogger(EvcsTechnagon.class);
+
+	/**
+	 * Handles charge states.
+	 */
+	private final ChargeStateHandler chargeStateHandler = new ChargeStateHandler(this);
+
+	/**
+	 * Processes the controller's writes to this evcs component.
+	 */
+	private final WriteHandler writeHandler = new WriteHandler(this);
 
 	@Reference
 	private ConfigurationAdmin cm;
@@ -96,13 +127,17 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 		super.setModbus(modbus);
 	}
 
-	private Config config = null;
+	@Reference
+	private EvcsPower evcsPower;
+
+	private Config config;
 
 	public EvcsTechnagonImpl() {
 		super(//
 				OpenemsComponent.ChannelId.values(), //
 				ModbusComponent.ChannelId.values(), //
 				Evcs.ChannelId.values(), //
+				ManagedEvcs.ChannelId.values(), //
 				EvcsTechnagon.ChannelId.values(), //
 				ElectricityMeter.ChannelId.values() //
 		);
@@ -115,6 +150,19 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 				"Modbus", config.modbus_id())) {
 			return;
 		}
+
+		this.onActivateOrModified();
+	}
+
+	@Modified
+	private void modified(ComponentContext context, Config config) throws OpenemsNamedException {
+		this.config = config;
+		if (super.modified(context, config.id(), config.alias(), config.enabled(), config.modbusUnitId(), this.cm,
+				"Modbus", config.modbus_id())) {
+			return;
+		}
+
+		this.onActivateOrModified();
 	}
 
 	@Override
@@ -126,6 +174,21 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 	@Override
 	public MeterType getMeterType() {
 		return MeterType.MANAGED_CONSUMPTION_METERED;
+	}
+
+	@Override
+	public String debugLog() {
+		return "Limit:" + this.getSetChargePowerLimit().asString() + "|" + this.getStatus().getName();
+	}
+
+	@Override
+	public PhaseRotation getPhaseRotation() {
+		return PhaseRotation.L1_L2_L3;
+	}
+
+	@Override
+	public boolean isReadOnly() {
+		return this.config.readOnly();
 	}
 
 	@Override
@@ -165,14 +228,12 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 						m(EvcsTechnagon.ChannelId.EVSE_STATUS_LAST_UPDATED,
 								new UnsignedQuadruplewordElement(
 										cp.applyModbusAddressOffset(REL_EVSE_STATUS_LAST_UPDATED)))),
-				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MIN_CURRENT), Priority.LOW,
-						m(EvcsTechnagon.ChannelId.MIN_CURRENT,
-								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MIN_CURRENT)),
-								ElementToChannelConverter.SCALE_FACTOR_MINUS_3)),
-				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MAX_CURRENT), Priority.LOW,
-						m(EvcsTechnagon.ChannelId.MAX_CURRENT,
-								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MAX_CURRENT)),
-								ElementToChannelConverter.SCALE_FACTOR_MINUS_3)),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MIN_CHARHING_CURRENT), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.MIN_CHARGING_CURRENT,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MIN_CHARHING_CURRENT)))),
+				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MAX_CHARGING_CURRENT), Priority.LOW,
+						m(EvcsTechnagon.ChannelId.MAX_CHARGING_CURRENT,
+								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MAX_CHARGING_CURRENT)))),
 				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_CURRENT_OFFERED), Priority.LOW,
 						m(EvcsTechnagon.ChannelId.CURRENT_OFFERED,
 								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_CURRENT_OFFERED)))),
@@ -196,16 +257,6 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 						m(EvcsTechnagon.ChannelId.FALL_BACK_TIMEOUT,
 								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_FALL_BACK_TIMEOUT)),
 								ElementToChannelConverter.SCALE_FACTOR_MINUS_2)),
-
-				// Evcs channels
-				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MIN_CURRENT), Priority.LOW,
-						m(Evcs.ChannelId.FIXED_MINIMUM_HARDWARE_POWER,
-								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MIN_CURRENT)),
-								CURRENT_LIMIT_TO_POWER_LIMIT)),
-				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_MAX_CURRENT), Priority.LOW,
-						m(Evcs.ChannelId.FIXED_MAXIMUM_HARDWARE_POWER,
-								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_MAX_CURRENT)),
-								CURRENT_LIMIT_TO_POWER_LIMIT)),
 				new FC3ReadRegistersTask(cp.applyModbusAddressOffset(REL_ENERGY), Priority.LOW,
 						m(Evcs.ChannelId.ENERGY_SESSION,
 								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_ENERGY)))),
@@ -245,14 +296,93 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 								new UnsignedWordElement(cp.applyModbusAddressOffset(REL_VOLTAGE_L3)),
 								ElementToChannelConverter.SCALE_FACTOR_2)));
 
+		if (!this.isReadOnly()) {
+			modbusProtocol.addTask(new FC6WriteRegisterTask(cp.applyModbusAddressOffset(REL_SET_CURRENT_MA),
+					m(EvcsTechnagon.ChannelId.SET_CHARGING_CURRENT,
+							new UnsignedWordElement(cp.applyModbusAddressOffset(REL_SET_CURRENT_MA)))));
+		}
+
 		this.addStatusListener();
 		this.addActiveConnectorListener();
+		this.addMinCurrentListener();
+		this.addMaxCurrentListener();
 		Evcs.calculateUsedPhasesFromCurrent(this);
 		Evcs.addCalculatePowerLimitListeners(this);
 		ElectricityMeter.calculateAverageVoltageFromPhases(this);
 		ElectricityMeter.calculateSumCurrentFromPhases(this);
 
 		return modbusProtocol;
+	}
+
+	@Override
+	public EvcsPower getEvcsPower() {
+		return this.evcsPower;
+	}
+
+	@Override
+	public int getConfiguredMinimumHardwarePower() {
+		return this.toWatts(this.config.minHwCurrent());
+	}
+
+	@Override
+	public int getConfiguredMaximumHardwarePower() {
+		return this.toWatts(this.config.maxHwCurrent());
+	}
+
+	@Override
+	public boolean getConfiguredDebugMode() {
+		return this.config.debugMode();
+	}
+
+	@Override
+	public boolean applyChargePowerLimit(int power) throws OpenemsNamedException {
+		if (this.isReadOnly()) {
+			return false;
+		} else {
+			var phases = this.getPhasesAsInt();
+			var currentMilliAmps = Math.round((power / ((float) phases * DEFAULT_VOLTAGE)) * 1000f);
+
+			this.setSetChargingCurrent(currentMilliAmps);
+
+			return true;
+		}
+	}
+
+	@Override
+	public boolean pauseChargeProcess() throws Exception {
+		return this.applyChargePowerLimit(0);
+	}
+
+	@Override
+	public boolean applyDisplayText(String text) throws OpenemsException {
+		return false;
+	}
+
+	@Override
+	public int getMinimumTimeTillChargingLimitTaken() {
+		return 10; // car needs at least 5 seconds
+	}
+
+	@Override
+	public ChargeStateHandler getChargeStateHandler() {
+		return this.chargeStateHandler;
+	}
+
+	@Override
+	public void logDebug(String message) {
+		this.logDebug(this.log, message);
+
+	}
+
+	@Override
+	public void handleEvent(Event event) {
+		if (!this.isEnabled()) {
+			return;
+		}
+		switch (event.getTopic()) {
+		case EdgeEventConstants.TOPIC_CYCLE_EXECUTE_WRITE //
+			-> this.writeHandler.run();
+		}
 	}
 
 	private void addStatusListener() {
@@ -282,14 +412,46 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 
 	}
 
-	@Override
-	public String debugLog() {
-		return "Status: " + this.getStatus().getName();
+	private void addMinCurrentListener() {
+		this.channel(EvcsTechnagon.ChannelId.MIN_CHARGING_CURRENT).onSetNextValue(minCurrent -> {
+			var readMinCurrent = (Integer) minCurrent.get();
+			this.updateFixedMinimumHardwarePower(readMinCurrent);
+		});
 	}
 
-	@Override
-	public PhaseRotation getPhaseRotation() {
-		return PhaseRotation.L1_L2_L3;
+	private void addMaxCurrentListener() {
+		this.channel(EvcsTechnagon.ChannelId.MAX_CHARGING_CURRENT).onSetNextValue(maxCurrent -> {
+			var readMaxCurrent = (Integer) maxCurrent.get();
+			this.updateFixedMaximumHardwarePower(readMaxCurrent);
+		});
 	}
 
+	private int toWatts(int milliAmps) {
+		return Math.round(milliAmps / 1000f) * DEFAULT_VOLTAGE * Phases.THREE_PHASE.getValue();
+	}
+
+	private void onActivateOrModified() {
+		this._setPowerPrecision(0.23);
+
+		var readMinCurrent = this.getMinChargingCurrent().get();
+		var readMaxCurrent = this.getMaxChargingCurrent().get();
+		this.updateFixedMinimumHardwarePower(readMinCurrent);
+		this.updateFixedMaximumHardwarePower(readMaxCurrent);
+	}
+
+	private void updateFixedMinimumHardwarePower(Integer readMinCurrent) {
+		var effectiveCurrent = readMinCurrent == null ? this.config.minHwCurrent()
+				: Math.max(readMinCurrent, this.config.minHwCurrent());
+		var power = this.toWatts(effectiveCurrent);
+
+		this._setFixedMinimumHardwarePower(power);
+	}
+
+	private void updateFixedMaximumHardwarePower(Integer readMaxCurrent) {
+		var effectiveCurrent = readMaxCurrent == null ? this.config.maxHwCurrent()
+				: Math.min(readMaxCurrent, this.config.maxHwCurrent());
+		var power = this.toWatts(effectiveCurrent);
+
+		this._setFixedMaximumHardwarePower(power);
+	}
 }

@@ -1,4 +1,4 @@
-package io.openems.edge.evcs.technagon;
+package io.openems.edge.evcs.technagon.enums;
 
 import io.openems.common.types.OptionsEnum;
 
@@ -24,12 +24,12 @@ public enum TechnagonState implements OptionsEnum {
 	
 	@Override
 	public int getValue() {
-		return value;
+		return this.value;
 	}
 
 	@Override
 	public String getName() {
-		return name;
+		return this.name;
 	}
 
 	@Override

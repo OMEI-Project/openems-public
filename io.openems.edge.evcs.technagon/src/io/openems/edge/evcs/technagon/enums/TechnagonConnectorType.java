@@ -1,4 +1,4 @@
-package io.openems.edge.evcs.technagon;
+package io.openems.edge.evcs.technagon.enums;
 
 import io.openems.common.types.OptionsEnum;
 

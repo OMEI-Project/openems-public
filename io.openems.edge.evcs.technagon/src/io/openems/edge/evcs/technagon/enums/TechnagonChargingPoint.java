@@ -1,4 +1,4 @@
-package io.openems.edge.evcs.technagon;
+package io.openems.edge.evcs.technagon.enums;
 
 public enum TechnagonChargingPoint {
 	
