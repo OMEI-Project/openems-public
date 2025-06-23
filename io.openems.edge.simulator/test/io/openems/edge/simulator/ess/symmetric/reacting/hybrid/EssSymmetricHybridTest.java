@@ -5,7 +5,7 @@ import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.DummyComponentManager;
 import io.openems.edge.common.test.DummyConfigurationAdmin;
-import io.openems.edge.common.test.TimeLeapClock;
+import io.openems.common.test.TimeLeapClock;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
 import io.openems.edge.ess.api.SocState;

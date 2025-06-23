@@ -3,7 +3,7 @@ package io.openems.edge.simulator.pythonBridge;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.edge.common.component.ComponentManager;
 import io.openems.edge.common.event.EdgeEventConstants;
-import io.openems.edge.common.test.TimeLeapClock;
+import io.openems.common.test.TimeLeapClock;
 import io.openems.edge.ess.api.SocState;
 import io.openems.edge.simulator.ess.symmetric.hybrid.EssSymmetricHybrid;
 

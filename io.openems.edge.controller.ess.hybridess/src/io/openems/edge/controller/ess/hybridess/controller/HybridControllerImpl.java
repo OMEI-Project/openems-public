@@ -236,10 +236,10 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		// ... existing code preserved for reactivation
 	}
 	*/
-	
+
 	private int shouldChargeCounter = 0;
 	private boolean cachedShouldCharge = false;
-	
+
 	private boolean shouldChargeNow() {
 		shouldChargeCounter++;
 	    if (shouldChargeCounter % dataServiceInterval != 0) {
@@ -295,7 +295,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	        cachedShouldCharge = parsedResult;
 	        this.logWarn(this.log, "Response shouldChargeNow: " + response + " (bool: " + cachedShouldCharge + ")");
-	        return cachedShouldCharge;
+		return cachedShouldCharge;
 	    } catch (Exception e) {	        
 	        return false; // Default to not forcing charging in case of error
 	    }
@@ -339,7 +339,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 			OutputStream os = conn.getOutputStream();
 			byte[] input = jsonInputString.getBytes(StandardCharsets.UTF_8);
-			os.write(input, 0, input.length);
+				os.write(input, 0, input.length);
 			os.flush();
 			os.close();
 

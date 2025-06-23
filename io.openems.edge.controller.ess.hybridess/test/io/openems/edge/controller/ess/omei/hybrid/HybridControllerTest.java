@@ -5,15 +5,15 @@ import io.openems.edge.common.sum.DummySum;
 import io.openems.edge.common.sum.Sum;
 import io.openems.edge.common.test.AbstractComponentTest.TestCase;
 import io.openems.edge.common.test.DummyComponentManager;
-import io.openems.edge.common.test.TimeLeapClock;
+import io.openems.common.test.TimeLeapClock;
 import io.openems.edge.controller.ess.hybridess.controller.HybridControllerImpl;
 import io.openems.edge.controller.test.ControllerTest;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.test.DummyPower;
-import io.openems.edge.meter.api.SymmetricMeter;
-import io.openems.edge.meter.test.DummySymmetricMeter;
+import io.openems.edge.meter.api.ElectricityMeter;
+import io.openems.edge.meter.test.DummyElectricityMeter;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -80,7 +80,7 @@ public class HybridControllerTest {
 			SymmetricEss.ChannelId.ACTIVE_POWER.id());
 	
 	private static final String METER_ID = "meter0";
-	private static final ChannelAddress METER_ACTIVE_POWER = new ChannelAddress(METER_ID, SymmetricMeter.ChannelId.ACTIVE_POWER.id());
+	private static final ChannelAddress METER_ACTIVE_POWER = new ChannelAddress(METER_ID, ElectricityMeter.ChannelId.ACTIVE_POWER.id());
 
 	private static final String SUM_ID = "_sum";
 
@@ -193,7 +193,7 @@ public class HybridControllerTest {
 				SUPPORT_ID, "http://127.0.0.1:5000/", sum, new DummyComponentManager(clock))) //
 				.addReference("componentManager", new DummyComponentManager(clock)) //
 				.addReference("sum", sum) //
-				.addComponent(new DummySymmetricMeter(METER_ID)) //
+				.addComponent(new DummyElectricityMeter(METER_ID)) //
 				// Remove main ESS setup for single battery mode
 				// .addComponent(setupESS(MAIN_ID, MAIN_MAX_APPARENT_POWER)) //
 				.addComponent(setupESS(SUPPORT_ID, SUPPORT_MAX_APPARENT_POWER)) //

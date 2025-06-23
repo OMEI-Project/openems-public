@@ -42,7 +42,6 @@ import io.openems.edge.ess.api.SoCStateMachine;
 import io.openems.edge.ess.api.SocState;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.power.api.Power;
-import io.openems.edge.simulator.ess.symmetric.reacting.EssSymmetric;
 import io.openems.edge.timedata.api.Timedata;
 import io.openems.edge.timedata.api.TimedataProvider;
 import io.openems.edge.timedata.api.utils.CalculateEnergyFromPower;
@@ -259,7 +258,7 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 				SymmetricEss.getModbusSlaveNatureTable(accessMode), //
 				ManagedSymmetricEss.getModbusSlaveNatureTable(accessMode), //
 				StartStoppable.getModbusSlaveNatureTable(accessMode), //
-				ModbusSlaveNatureTable.of(EssSymmetric.class, accessMode, 100) //
+				ModbusSlaveNatureTable.of(EssSymmetricHybrid.class, accessMode, 100) //
 				.build());
 	}
 
@@ -618,11 +617,9 @@ public class EssSymmetricHybrid extends AbstractOpenemsComponent
 	public void _pythonBrideSetComponentManager(ComponentManager componentManager) {
 		this.componentManager = componentManager;
 		calculateChargeEnergy = new CalculateEnergyFromPower(this,
-				componentManager,
 				SymmetricEss.ChannelId.ACTIVE_CHARGE_ENERGY);
 
 		calculateDischargeEnergy = new CalculateEnergyFromPower(this,
-				componentManager,
 				SymmetricEss.ChannelId.ACTIVE_DISCHARGE_ENERGY);
 	}
 
