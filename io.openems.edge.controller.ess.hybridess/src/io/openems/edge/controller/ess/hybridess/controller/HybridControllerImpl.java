@@ -177,9 +177,29 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		}
 
 		// Simplified logic for single battery system
-		if(supportSocState == SocState.RED || defaultMinimumEnergy >= totalStoredEnergy || shouldChargeNow()) {
+		boolean isRedState = supportSocState == SocState.RED;
+		boolean isBelowMinEnergy = defaultMinimumEnergy >= totalStoredEnergy;
+		boolean shouldForceCharge = shouldChargeNow();
+		
+		if(isRedState || isBelowMinEnergy || shouldForceCharge) {
 			// Use grid to meet demand/ charge the ess as well. In case of depleted ESS or minimum energy not met.
 			essPower = consumption - (production + maxGridPower);
+			
+			// Debug logging to show which condition triggered heavy charging
+			StringBuilder chargingReason = new StringBuilder("CHARGING TRIGGERED: ");
+			if (isRedState) {
+				chargingReason.append("RED_SOC_STATE (SoC: ").append(supportEss.getSoc().orElse(0)).append("%) ");
+			}
+			if (isBelowMinEnergy) {
+				chargingReason.append("MIN_ENERGY_THRESHOLD (stored: ").append(totalStoredEnergy)
+					.append("Wh < min: ").append(defaultMinimumEnergy).append("Wh) ");
+			}
+			if (shouldForceCharge) {
+				chargingReason.append("EXTERNAL_CHARGE_DECISION ");
+			}
+			chargingReason.append("| Grid Power: ").append(maxGridPower).append("W");
+			
+			this.logInfo(this.log, chargingReason.toString());
 		}
 
 		// Single battery logic - no power splitting needed
