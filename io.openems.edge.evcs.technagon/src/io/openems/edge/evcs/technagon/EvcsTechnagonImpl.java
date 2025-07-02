@@ -389,11 +389,11 @@ public class EvcsTechnagonImpl extends AbstractOpenemsModbusComponent
 		this.channel(EvcsTechnagon.ChannelId.RAW_STATUS).onSetNextValue(s -> {
 			TechnagonState rawState = s.asEnum();
 			Status status = switch (rawState) {
-			case AVAILABLE -> Status.NOT_READY_FOR_CHARGING;
-			case PREPARING -> Status.READY_FOR_CHARGING;
-			case CHARGING -> Status.CHARGING;
-			case EV_SUSPENDED, EVSE_SUSPENDED, RESERVED, FINISHING -> Status.CHARGING_REJECTED;
-			case FAULTED, UNAVAILABLE -> Status.ERROR;
+			case AVAILABLE, RESERVED -> Status.NOT_READY_FOR_CHARGING;
+			case PREPARING, FINISHING -> Status.READY_FOR_CHARGING;
+			case CHARGING, EV_SUSPENDED, EVSE_SUSPENDED -> Status.CHARGING;
+			case UNAVAILABLE -> Status.CHARGING_REJECTED;
+			case FAULTED -> Status.ERROR;
 			case UNDEFINED -> Status.UNDEFINED;
 			};
 			this._setStatus(status);

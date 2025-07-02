@@ -42,12 +42,12 @@ public class EvcsTechnagonImplTest {
 		statusMapping(test, TechnagonState.AVAILABLE, Status.NOT_READY_FOR_CHARGING);
 		statusMapping(test, TechnagonState.PREPARING, Status.READY_FOR_CHARGING);
 		statusMapping(test, TechnagonState.CHARGING, Status.CHARGING);
-		statusMapping(test, TechnagonState.EV_SUSPENDED, Status.CHARGING_REJECTED);
-		statusMapping(test, TechnagonState.EVSE_SUSPENDED, Status.CHARGING_REJECTED);
-		statusMapping(test, TechnagonState.RESERVED, Status.CHARGING_REJECTED);
-		statusMapping(test, TechnagonState.FINISHING, Status.CHARGING_REJECTED);
+		statusMapping(test, TechnagonState.EV_SUSPENDED, Status.CHARGING);
+		statusMapping(test, TechnagonState.EVSE_SUSPENDED, Status.CHARGING);
+		statusMapping(test, TechnagonState.RESERVED, Status.NOT_READY_FOR_CHARGING);
+		statusMapping(test, TechnagonState.FINISHING, Status.READY_FOR_CHARGING);
 		statusMapping(test, TechnagonState.FAULTED, Status.ERROR);
-		statusMapping(test, TechnagonState.UNAVAILABLE, Status.ERROR);
+		statusMapping(test, TechnagonState.UNAVAILABLE, Status.CHARGING_REJECTED);
 		statusMapping(test, TechnagonState.UNDEFINED, Status.UNDEFINED);
 
 		connectorMapping(test, TechnagonConnectorType.CCS, ChargingType.CCS);
