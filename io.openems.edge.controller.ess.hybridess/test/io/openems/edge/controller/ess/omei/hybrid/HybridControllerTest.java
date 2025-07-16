@@ -9,9 +9,9 @@ import io.openems.common.test.TimeLeapClock;
 import io.openems.edge.controller.ess.hybridess.controller.HybridControllerImpl;
 import io.openems.edge.controller.test.ControllerTest;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
 import io.openems.edge.ess.api.SymmetricEss;
 import io.openems.edge.ess.test.DummyPower;
+import io.openems.edge.ess.test.DummyManagedSymmetricEss;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.meter.test.DummyElectricityMeter;
 import org.junit.Rule;
@@ -42,38 +42,23 @@ public class HybridControllerTest {
 	private TimeLeapClock clock;
 
 	private static final String CTRL_ID = "ctrl0";
-	// Commented out for single battery mode - can be easily reactivated
-	// private static final String MAIN_ID = "ess0";
 	private static final String SUPPORT_ID ="ess1";
 	
-	// Main battery power specs commented out for single battery mode
-	// private static final int MAIN_MAX_APPARENT_POWER = 100_000;
 	private static final int SUPPORT_MAX_APPARENT_POWER = 276_000;
 
-	// Main battery channels commented out for single battery mode
-	// private static final ChannelAddress MAIN_SOC = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.SOC.id());
 	private static final ChannelAddress SUPPORT_SOC = new ChannelAddress(SUPPORT_ID, SymmetricEss.ChannelId.SOC.id());
-	// private static final ChannelAddress MAIN_SET_ACTIVE_POWER_EQUALS = new ChannelAddress(MAIN_ID,
-	//		ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS.id());
-
 	private static final ChannelAddress SUPPORT_SET_ACTIVE_POWER_EQUALS = new ChannelAddress(SUPPORT_ID,
 			ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS.id());
 
-	// Main battery channel addresses commented out for single battery mode
-	/*
-	private static final ChannelAddress MAIN_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_CHARGE_POWER_LIMIT.id());
-	private static final ChannelAddress MAIN_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_CHARGE_POWER_LIMIT.id());
-	private static final ChannelAddress MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
-	private static final ChannelAddress MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
-	private static final ChannelAddress MAIN_MAX_APPARENT_POWER_CHANNEL = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.MAX_APPARENT_POWER.id());
-	private static final ChannelAddress MAIN_CAPACITY = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.CAPACITY.id());
-	private static final ChannelAddress MAIN_ACTIVE_POWER = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.ACTIVE_POWER.id());
-	*/
+	private static final ChannelAddress SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT = new ChannelAddress(SUPPORT_ID,
+			ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER.id());
+	private static final ChannelAddress SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT = new ChannelAddress(SUPPORT_ID,
+			ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER.id());
 
-	private static final ChannelAddress SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT = new ChannelAddress(SUPPORT_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_CHARGE_POWER_LIMIT.id());
-	private static final ChannelAddress SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT = new ChannelAddress(SUPPORT_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_CHARGE_POWER_LIMIT.id());
-	private static final ChannelAddress SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT = new ChannelAddress(SUPPORT_ID, ManagedSymmetricEssHybrid.ChannelId.UPPER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
-	private static final ChannelAddress SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT = new ChannelAddress(SUPPORT_ID, ManagedSymmetricEssHybrid.ChannelId.LOWER_POSSIBLE_DISCHARGE_POWER_LIMIT.id());
+	private static final ChannelAddress SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT = new ChannelAddress(SUPPORT_ID,
+			ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER.id());
+	private static final ChannelAddress SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT = new ChannelAddress(SUPPORT_ID,
+			ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER.id());
 
 	private static final ChannelAddress SUPPORT_CAPACITY = new ChannelAddress(SUPPORT_ID, SymmetricEss.ChannelId.CAPACITY.id());
 	private static final ChannelAddress SUPPORT_ACTIVE_POWER = new ChannelAddress(SUPPORT_ID,
@@ -168,19 +153,6 @@ public class HybridControllerTest {
 						);
 	}
 
-	// Keep original test structure but simplified for single battery - commented out dual battery tests
-	/*
-	@Test
-	public void chargeSplit() throws Exception {
-		// Original dual battery charge split tests - preserved for reactivation
-	}
-
-	@Test  
-	public void dischargeSplit() throws Exception {
-		// Original dual battery discharge split tests - preserved for reactivation
-	}
-	*/
-
 	private ControllerTest createControllerTest() throws Exception {
 		return createControllerTest(DEFAULT_MIN_ENERGY);
 	}
@@ -194,28 +166,29 @@ public class HybridControllerTest {
 				.addReference("componentManager", new DummyComponentManager(clock)) //
 				.addReference("sum", sum) //
 				.addComponent(new DummyElectricityMeter(METER_ID)) //
-				// Remove main ESS setup for single battery mode
-				// .addComponent(setupESS(MAIN_ID, MAIN_MAX_APPARENT_POWER)) //
 				.addComponent(setupESS(SUPPORT_ID, SUPPORT_MAX_APPARENT_POWER)) //
 				.activate(MyConfig.create() //
 						.setId(CTRL_ID) //
-						// .setMainId(MAIN_ID) // Commented out for single battery mode
 						.setSupportId(SUPPORT_ID) //
-						.setMeterId(METER_ID) //
 						.setDefaultMinimumEnergy(defaultMinimumGridPower) //
 						.setMaxGridPower(MAX_GRID_POWER) //
 						.setDataAcquisitionServiceBaseUrl("http://127.0.0.1:5000/") //
-						.setDataServiceInterval(10) // Use default interval for tests
+						.setDataServiceInterval(10) //
+						.setLowerSocBounds(new int[]{10, 20}) //
+						.setUpperSocBounds(new int[]{85, 95}) //
+						.setMaxPowerChangePerCycle(1000) //
+						.setMaxChargePower(276_000) //
+						.setMaxDischargePower(276_000) //
+						.setChargingEfficiencyKeys(new double[]{0.0, 0.5, 1.0}) //
+						.setChargingEfficiencyValues(new double[]{0.85, 0.90, 0.85}) //
+						.setDischargingEfficiencyKeys(new double[]{0.0, 0.5, 1.0}) //
+						.setDischargingEfficiencyValues(new double[]{0.85, 0.90, 0.85}) //
+						.setBatteryChargingEfficiency(0.95) //
+						.setBatteryDischargingEfficiency(0.95) //
 						.build());
 	}
 
-	private static ManagedSymmetricEssHybrid setupESS(String id, int maxApparentPower) {
-		return setupESS(id, maxApparentPower, new int[]{10, 20}, new int[]{85, 95});
+	private static ManagedSymmetricEss setupESS(String id, int maxApparentPower) {
+		return new DummyManagedSymmetricEss(id).withMaxApparentPower(maxApparentPower);
 	}
-
-	private static ManagedSymmetricEssHybrid setupESS(String id, int maxApparentPower,
-													  int[] lowerSocBorder, int[] upperSocBorder) {
-		return new DummyHybridEss(id, new DummyPower(maxApparentPower), lowerSocBorder, upperSocBorder);
-	}
-
 }

@@ -1,17 +1,13 @@
 package io.openems.edge.controller.ess.hybridess.controller;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.nio.charset.StandardCharsets;
 import java.io.OutputStream;
-import java.util.Arrays;
-import java.util.Optional;
 
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.annotations.Activate;
@@ -31,8 +27,8 @@ import io.openems.edge.common.component.OpenemsComponent;
 import io.openems.edge.common.sum.GridMode;
 import io.openems.edge.common.sum.Sum;
 import io.openems.edge.controller.api.Controller;
-import io.openems.edge.ess.api.CalculateGridMode;
-import io.openems.edge.ess.api.ManagedSymmetricEssHybrid;
+import io.openems.edge.ess.api.ManagedSymmetricEss;
+import io.openems.edge.ess.api.SoCStateMachine;
 import io.openems.edge.ess.api.SocState;
 
 
@@ -68,10 +64,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 	private final Logger log = LoggerFactory.getLogger(HybridControllerImpl.class);
 
-	// Commented out for single battery mode - can be easily reactivated
-	// private String mainId;
 	private String supportId;
-
 	private String dataAcquisitionServiceBaseUrl;
 	
 	/**
@@ -90,9 +83,42 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	 */
 	private int dataServiceInterval;
 
-	// Percentage of mainEss's maximum power output, that mainEss should supply alone as netpower.
-	// NOTE: Preserved for dual-battery mode reactivation
-	private final double netPowerThreshold = 0.8;
+	/**
+	 * SoC State Machine for managing battery state transitions
+	 */
+	private SoCStateMachine socStateMachine;
+
+	/**
+	 * Maximum power change per cycle for power filtering/ramping
+	 */
+	private int maxPowerChangePerCycle;
+
+	/**
+	 * Last power value for power filtering/ramping
+	 */
+	private int lastPower = 0;
+
+	/**
+	 * Maximum charge power in W (stored as negative value)
+	 */
+	private int maxChargePower;
+
+	/**
+	 * Maximum discharge power in W
+	 */
+	private int maxDischargePower;
+
+	/**
+	 * Efficiency lookup tables for charging and discharging
+	 */
+	private EfficiencyTable chargingEfficiencyTable;
+	private EfficiencyTable dischargingEfficiencyTable;
+
+	/**
+	 * Battery efficiency multipliers
+	 */
+	private double batteryChargingEfficiency;
+	private double batteryDischargingEfficiency;
 
 	private int flaskSendCounter = 0;
 
@@ -102,7 +128,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	@Reference 
 	private Sum sum;
 
-	// Constructor for testing with dual battery (commented out main battery references)
+	// Constructor for testing
 	public HybridControllerImpl(int defaultMinimumEnergy, int maxGridPower, String mainId, String supportId,
 								String dataAcquisitionServiceBaseUrl,
 								Sum sum, ComponentManager componentManager){
@@ -113,7 +139,11 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 		this.sum = sum;
 		this.componentManager = componentManager;
-		internalActivate(defaultMinimumEnergy, maxGridPower, /* mainId, */ supportId, dataAcquisitionServiceBaseUrl, 10);
+		internalActivate(defaultMinimumEnergy, maxGridPower, supportId, dataAcquisitionServiceBaseUrl, 10,
+				new int[]{10, 20}, new int[]{85, 95}, 1000, 276_000, 276_000,
+				new double[]{0.0, 0.5, 1.0}, new double[]{0.85, 0.90, 0.85},
+				new double[]{0.0, 0.5, 1.0}, new double[]{0.85, 0.90, 0.85},
+				0.95, 0.95);
 	}
 
 	public HybridControllerImpl(){
@@ -124,22 +154,43 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 	}
 
-	// Modified to work with single battery
-	private void internalActivate(int defaultMinimumEnergy, int maxGridPower, /* String mainId, */ String supportId,
-							 String dataAcquisitionServiceBaseUrl, int dataServiceInterval) {
+	private void internalActivate(int defaultMinimumEnergy, int maxGridPower, String supportId,
+							 String dataAcquisitionServiceBaseUrl, int dataServiceInterval,
+							 int[] lowerSocBounds, int[] upperSocBounds, int maxPowerChangePerCycle,
+							 int maxChargePower, int maxDischargePower,
+							 double[] chargingEfficiencyKeys, double[] chargingEfficiencyValues,
+							 double[] dischargingEfficiencyKeys, double[] dischargingEfficiencyValues,
+							 double batteryChargingEfficiency, double batteryDischargingEfficiency) {
 		this.defaultMinimumEnergy = defaultMinimumEnergy;
 		this.maxGridPower = maxGridPower;
-		// this.mainId = mainId;  // Commented out for single battery mode
-		this.supportId=supportId;
+		this.supportId = supportId;
 		this.dataAcquisitionServiceBaseUrl = dataAcquisitionServiceBaseUrl;
 		this.dataServiceInterval = dataServiceInterval;
+		this.maxPowerChangePerCycle = maxPowerChangePerCycle;
+		this.maxChargePower = -Math.abs(maxChargePower); // Store as negative
+		this.maxDischargePower = maxDischargePower;
+		this.batteryChargingEfficiency = batteryChargingEfficiency;
+		this.batteryDischargingEfficiency = batteryDischargingEfficiency;
+		
+		// Initialize efficiency tables
+		this.chargingEfficiencyTable = new EfficiencyTable(chargingEfficiencyKeys, chargingEfficiencyValues);
+		this.dischargingEfficiencyTable = new EfficiencyTable(dischargingEfficiencyKeys, dischargingEfficiencyValues);
+		
+		// Initialize SoC state machine
+		this.socStateMachine = new SoCStateMachine(lowerSocBounds, upperSocBounds);
+		this.lastPower = 0;
 	}
 	
 	@Activate
 	void activate(ComponentContext context, Config config) throws OpenemsNamedException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
 		internalActivate(config.defaultMinimumEnergy(),
-				config.maxGridPower(), /* config.mainId(), */ config.supportId(), config.dataAcquisitionServiceBaseUrl(), config.dataServiceInterval());
+				config.maxGridPower(), config.supportId(), config.dataAcquisitionServiceBaseUrl(), 
+				config.dataServiceInterval(), config.lowerSocBounds(), config.upperSocBounds(), 
+				config.maxPowerChangePerCycle(), config.maxChargePower(), config.maxDischargePower(),
+				config.chargingEfficiencyKeys(), config.chargingEfficiencyValues(),
+				config.dischargingEfficiencyKeys(), config.dischargingEfficiencyValues(),
+				config.batteryChargingEfficiency(), config.batteryDischargingEfficiency());
 	}
 
 	@Deactivate
@@ -147,25 +198,116 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		super.deactivate();
 	}
 
+	/**
+	 * Calculate SoC state based on current SoC value using internal state machine
+	 */
+	private SocState calculateSocState(ManagedSymmetricEss ess) {
+		Integer soc = ess.getSoc().orElse(50); // Default to 50% if undefined
+		socStateMachine.calculateSoCState(soc);
+		return socStateMachine.getSoCState();
+	}
+
+	/**
+	 * Calculate efficiency based on current power level
+	 */
+	private double calculateEfficiency(int power) {
+		if (power == 0) {
+			return 1.0;
+		}
+		
+		// Calculate normalized power level (0-1)
+		double normalizedPower;
+		if (power < 0) {
+			// Charging - normalize against max charge power
+			normalizedPower = Math.abs(power) / Math.abs(maxChargePower);
+		} else {
+			// Discharging - normalize against max discharge power
+			normalizedPower = power / (double) maxDischargePower;
+		}
+		
+		// Ensure normalized power is within [0,1]
+		normalizedPower = Math.max(0, Math.min(1, normalizedPower));
+		
+		// Get efficiency from lookup table and apply battery efficiency
+		if (power < 0) {
+			// Charging
+			return chargingEfficiencyTable.getEfficiency(normalizedPower) * batteryChargingEfficiency;
+		} else {
+			// Discharging
+			return dischargingEfficiencyTable.getEfficiency(normalizedPower) * batteryDischargingEfficiency;
+		}
+	}
+
+	/**
+	 * Calculate power with efficiency applied
+	 */
+	private int calculatePowerWithEfficiency(int power) {
+		if (power == 0) {
+			return 0;
+		}
+		
+		double efficiency = calculateEfficiency(power);
+		
+		if (power < 0) {
+			// Charging - power is reduced by efficiency
+			return (int) (power * efficiency);
+		} else {
+			// Discharging - power is increased to account for losses
+			return (int) (power * (1.0 / efficiency));
+		}
+	}
+
+	/**
+	 * Calculate inefficiency power loss
+	 */
+	private int calculateInefficiencyLoss(int power) {
+		if (power == 0) {
+			return 0;
+		}
+		
+		int powerWithEfficiency = calculatePowerWithEfficiency(power);
+		return Math.abs(power - powerWithEfficiency);
+	}
+
+	/**
+	 * Filter power to implement ramping/smoothing
+	 */
+	private int filterPower(int targetPower) {
+		int powerDifference = targetPower - lastPower;
+		
+		if (Math.abs(powerDifference) <= maxPowerChangePerCycle) {
+			// Within ramp rate limits - use target power
+			lastPower = targetPower;
+			return targetPower;
+		} else {
+			// Apply ramp rate limiting
+			if (powerDifference > 0) {
+				// Ramping up (more positive/less negative)
+				lastPower += maxPowerChangePerCycle;
+			} else {
+				// Ramping down (more negative/less positive)
+				lastPower -= maxPowerChangePerCycle;
+			}
+			return lastPower;
+		}
+	}
 
 	@Override
 	public void run() throws OpenemsNamedException {
-		// Single battery mode - only use supportEss
-		// ManagedSymmetricEssHybrid mainEss = componentManager.getComponent(mainId);  // Commented out
-		ManagedSymmetricEssHybrid supportEss  = componentManager.getComponent(supportId);
+		// Get the battery ESS
+		ManagedSymmetricEss supportEss = componentManager.getComponent(supportId);
 		
-		// For single battery mode, use only the supportEss grid mode
-		GridMode gridMode = supportEss.getGridMode(); // Simplified for single battery
-		// SocState mainSocState = mainEss.getSocState();  // Commented out
-		SocState supportSocState = supportEss.getSocState();
+		// Calculate SoC state internally
+		SocState supportSocState = calculateSocState(supportEss);
+		
+		// Get grid mode from the ESS
+		GridMode gridMode = supportEss.getGridMode();
 
 		final int consumption = sum.getConsumptionActivePower().orElse(0);
 		final int production = sum.getProductionActivePower().orElse(0);
-		int totalStoredEnergy = this.getTotalStoredEnergy(/* mainEss, */ supportEss);
+		int totalStoredEnergy = this.getTotalStoredEnergy(supportEss);
 		int essPower = consumption - production;
 		
-		// Simplified power split logic for single battery
-		// double powerSplit = 1.0;  // Not needed for single battery
 		switch(gridMode) {
 		case UNDEFINED:
 			this.logWarn(this.log, "Grid-Mode is [UNDEFINED]");
@@ -176,7 +318,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			throw new IllegalStateException(String.format("Unknown state %s for grid mode of ess.", gridMode));
 		}
 
-		// Simplified logic for single battery system
+		// Logic for single battery system
 		boolean isRedState = supportSocState == SocState.RED;
 		boolean isBelowMinEnergy = defaultMinimumEnergy >= totalStoredEnergy;
 		boolean shouldForceCharge = shouldChargeNow();
@@ -202,8 +344,8 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			this.logInfo(this.log, chargingReason.toString());
 		}
 
-		// Single battery logic - no power splitting needed
-		int supportEssPower = supportEss.filterPower(essPower);
+		// Apply power filtering/ramping
+		int supportEssPower = filterPower(essPower);
 
 		if (consumptionExceedsAvailablePower(consumption, maxGridPower, production, 0, supportEssPower)) {
 			// TODO Load shedding. Handling of this case. For now just let it happen.
@@ -212,50 +354,21 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 					Instant.now(componentManager.getClock()), consumption, maxGridPower + production + supportEssPower, maxGridPower, production, supportEssPower));
 		}
 
-		// Set power for single battery
+		// Set power for battery
 		supportEss.setActivePowerEquals(supportEssPower);
 		supportEss.setReactivePowerEquals(0);
 
-		logSupportEssData(supportEss);
+		logSupportEssData(supportEss, supportEssPower);
 	}
-
-	// Commented out - only needed for dual battery mode
-	/*
-	private void conserveRed(ManagedSymmetricEssHybrid activeEss, ManagedSymmetricEssHybrid conservedEss, SocState activeSocState)
-			throws OpenemsNamedException {
-		// ... existing code preserved for reactivation
-	}
-	*/
 
 	private boolean consumptionExceedsAvailablePower(int consumption, int gridLimit, int production, int firstEssPower, int secondEssPower) {
 		return (gridLimit + production) < consumption - firstEssPower - secondEssPower;
 	}
 
-	// Modified for single battery
-	private int getTotalStoredEnergy(/* ManagedSymmetricEssHybrid mainEss, */ ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
-		// int mainEssStoredEnergy = (mainEss.getCapacity().getOrError() * (mainEss.getSoc().getOrError()));  // Commented out
+	private int getTotalStoredEnergy(ManagedSymmetricEss supportEss) throws InvalidValueException {
 		int supportEssStoredEnergy = (supportEss.getCapacity().getOrError() * (supportEss.getSoc().getOrError()));
-		return supportEssStoredEnergy / 100;  // Simplified for single battery
+		return supportEssStoredEnergy / 100;
 	}
-
-	// Commented out - not needed for single battery mode
-	/*
-	private double chargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss) throws InvalidValueException {
-		// ... existing code preserved for reactivation
-	}
-
-	private double dischargePowerSplit(ManagedSymmetricEssHybrid mainEss, ManagedSymmetricEssHybrid supportEss, int essPower) throws InvalidValueException {
-		// ... existing code preserved for reactivation
-	}
-
-	private static double getPowerSplitCharging(SocState mainSocState, SocState supportSocState) {
-		// ... existing code preserved for reactivation
-	}
-
-	private static double getPowerSplitDischarging(SocState mainSocState, SocState supportSocState) {
-		// ... existing code preserved for reactivation
-	}
-	*/
 
 	private int shouldChargeCounter = 0;
 	private boolean cachedShouldCharge = false;
@@ -314,14 +427,15 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	        }
 
 	        cachedShouldCharge = parsedResult;
-	        this.logWarn(this.log, "Response shouldChargeNow: " + response + " (bool: " + cachedShouldCharge + ")");
+	        this.logInfo(this.log, "Response shouldChargeNow: " + response + " (bool: " + cachedShouldCharge + ")");
 		return cachedShouldCharge;
-	    } catch (Exception e) {	        
+	    } catch (Exception e) {
+	        this.logWarn(this.log, "Failed to connect to shouldChargeNow service: " + e.getMessage());
 	        return false; // Default to not forcing charging in case of error
 	    }
 	}
 
-	private void logSupportEssData(ManagedSymmetricEssHybrid supportEss) {
+	private void logSupportEssData(ManagedSymmetricEss supportEss, int actualPower) {
 		flaskSendCounter++;
 		if (flaskSendCounter % dataServiceInterval != 0) {
 			// Skip sending to Flask server this cycle
@@ -333,12 +447,11 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			Integer activePower = supportEss.getActivePower().orElse(0);
 			Integer allowedChargePower = supportEss.getAllowedChargePower().orElse(0);
 			Integer allowedDischargePower = supportEss.getAllowedDischargePower().orElse(0);
-			// Efficiency might not be directly available or meaningful in the same way as the combined EssSymmetricHybrid
-			// For now, let's send a placeholder or consider if it's needed.
-			// double efficiency = supportEss.getEfficiencyByPower(); // This method doesn't exist on ManagedSymmetricEssHybrid
-			double efficiency = 1.0; // Placeholder
-			// Integer inefficiencyLossPower = supportEss.getInefficiencyLossPower(); // This method doesn't exist
-			Integer inefficiencyLossPower = 0; // Placeholder
+			
+			// Calculate real efficiency and inefficiency loss using internal calculations
+			double efficiency = calculateEfficiency(actualPower);
+			Integer inefficiencyLossPower = calculateInefficiencyLoss(actualPower);
+			
 			Instant simulationTime = Instant.now(this.componentManager.getClock());
 
 			URL url = new URL(this.dataAcquisitionServiceBaseUrl + "logdata");

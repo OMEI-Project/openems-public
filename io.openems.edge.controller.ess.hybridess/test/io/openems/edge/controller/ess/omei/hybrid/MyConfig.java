@@ -8,16 +8,24 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 	protected static class Builder {
 		private String id;
-		// Commented out for single battery mode - can be easily reactivated
-		// private String mainId;
 		private String supportId;
-		private String meterId;
 		private String energyPrediction;
 		private String powerPrediction;
 		private int defaultMinimumEnergy;
 		private int maxGridPower;
 		private String dataAcquisitionServiceBaseUrl;
 		private int dataServiceInterval;
+		private int[] lowerSocBounds;
+		private int[] upperSocBounds;
+		private int maxPowerChangePerCycle;
+		private int maxChargePower;
+		private int maxDischargePower;
+		private double[] chargingEfficiencyKeys;
+		private double[] chargingEfficiencyValues;
+		private double[] dischargingEfficiencyKeys;
+		private double[] dischargingEfficiencyValues;
+		private double batteryChargingEfficiency;
+		private double batteryDischargingEfficiency;
 
 		private Builder() {
 		}
@@ -27,21 +35,8 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 		
-		// Commented out for single battery mode - can be easily reactivated
-		/*
-		public Builder setMainId(String mainId) {
-			this.mainId = mainId;
-			return this;
-		}
-		*/
-		
 		public Builder setSupportId(String supportId) {
 			this.supportId = supportId;
-			return this;
-		}
-		
-		public Builder setMeterId(String meterId) {
-			this.meterId = meterId;
 			return this;
 		}
 		
@@ -75,6 +70,61 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 			return this;
 		}
 
+		public Builder setLowerSocBounds(int[] lowerSocBounds) {
+			this.lowerSocBounds = lowerSocBounds;
+			return this;
+		}
+
+		public Builder setUpperSocBounds(int[] upperSocBounds) {
+			this.upperSocBounds = upperSocBounds;
+			return this;
+		}
+
+		public Builder setMaxPowerChangePerCycle(int maxPowerChangePerCycle) {
+			this.maxPowerChangePerCycle = maxPowerChangePerCycle;
+			return this;
+		}
+
+		public Builder setMaxChargePower(int maxChargePower) {
+			this.maxChargePower = maxChargePower;
+			return this;
+		}
+
+		public Builder setMaxDischargePower(int maxDischargePower) {
+			this.maxDischargePower = maxDischargePower;
+			return this;
+		}
+
+		public Builder setChargingEfficiencyKeys(double[] chargingEfficiencyKeys) {
+			this.chargingEfficiencyKeys = chargingEfficiencyKeys;
+			return this;
+		}
+
+		public Builder setChargingEfficiencyValues(double[] chargingEfficiencyValues) {
+			this.chargingEfficiencyValues = chargingEfficiencyValues;
+			return this;
+		}
+
+		public Builder setDischargingEfficiencyKeys(double[] dischargingEfficiencyKeys) {
+			this.dischargingEfficiencyKeys = dischargingEfficiencyKeys;
+			return this;
+		}
+
+		public Builder setDischargingEfficiencyValues(double[] dischargingEfficiencyValues) {
+			this.dischargingEfficiencyValues = dischargingEfficiencyValues;
+			return this;
+		}
+
+		public Builder setBatteryChargingEfficiency(double batteryChargingEfficiency) {
+			this.batteryChargingEfficiency = batteryChargingEfficiency;
+			return this;
+		}
+
+		public Builder setBatteryDischargingEfficiency(double batteryDischargingEfficiency) {
+			this.batteryDischargingEfficiency = batteryDischargingEfficiency;
+			return this;
+		}
+
 		public MyConfig build() {
 			return new MyConfig(this);
 		}
@@ -96,27 +146,14 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		this.builder = builder;
 	}
 
-
 	@Override
 	public String id() {
 		return this.builder.id;
 	}
-
-	// Commented out for single battery mode - can be easily reactivated
-	/*
-	public String mainId() {
-		return this.builder.mainId;
-	}
-	*/
 	
 	@Override
 	public String supportId() {
 		return this.builder.supportId;
-	}
-
-	@Override
-	public String meterId() {
-		return this.builder.meterId;
 	}
 
 	@Override
@@ -137,6 +174,61 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	@Override
 	public int dataServiceInterval() {
 		return this.builder.dataServiceInterval;
+	}
+
+	@Override
+	public int[] lowerSocBounds() {
+		return this.builder.lowerSocBounds != null ? this.builder.lowerSocBounds : new int[]{10, 20};
+	}
+
+	@Override
+	public int[] upperSocBounds() {
+		return this.builder.upperSocBounds != null ? this.builder.upperSocBounds : new int[]{85, 95};
+	}
+
+	@Override
+	public int maxPowerChangePerCycle() {
+		return this.builder.maxPowerChangePerCycle != 0 ? this.builder.maxPowerChangePerCycle : 1000;
+	}
+
+	@Override
+	public int maxChargePower() {
+		return this.builder.maxChargePower != 0 ? this.builder.maxChargePower : 276_000;
+	}
+
+	@Override
+	public int maxDischargePower() {
+		return this.builder.maxDischargePower != 0 ? this.builder.maxDischargePower : 276_000;
+	}
+
+	@Override
+	public double[] chargingEfficiencyKeys() {
+		return this.builder.chargingEfficiencyKeys != null ? this.builder.chargingEfficiencyKeys : new double[]{0.0, 0.5, 1.0};
+	}
+
+	@Override
+	public double[] chargingEfficiencyValues() {
+		return this.builder.chargingEfficiencyValues != null ? this.builder.chargingEfficiencyValues : new double[]{0.85, 0.90, 0.85};
+	}
+
+	@Override
+	public double[] dischargingEfficiencyKeys() {
+		return this.builder.dischargingEfficiencyKeys != null ? this.builder.dischargingEfficiencyKeys : new double[]{0.0, 0.5, 1.0};
+	}
+
+	@Override
+	public double[] dischargingEfficiencyValues() {
+		return this.builder.dischargingEfficiencyValues != null ? this.builder.dischargingEfficiencyValues : new double[]{0.85, 0.90, 0.85};
+	}
+
+	@Override
+	public double batteryChargingEfficiency() {
+		return this.builder.batteryChargingEfficiency != 0 ? this.builder.batteryChargingEfficiency : 0.95;
+	}
+
+	@Override
+	public double batteryDischargingEfficiency() {
+		return this.builder.batteryDischargingEfficiency != 0 ? this.builder.batteryDischargingEfficiency : 0.95;
 	}
 
 	@Override
@@ -171,11 +263,4 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	public int hashCode() {
 		return java.util.Objects.hash(this.builder.id);
 	}
-
-	@Override
-	public String toString() {
-		return "MyConfig{id=" + this.builder.id + "}";
-	}
-
-	
 }
