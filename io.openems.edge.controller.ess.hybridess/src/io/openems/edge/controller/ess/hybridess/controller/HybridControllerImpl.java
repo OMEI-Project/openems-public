@@ -19,7 +19,6 @@ import org.osgi.service.metatype.annotations.Designate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.openems.common.exceptions.InvalidValueException;
 import io.openems.common.exceptions.OpenemsError.OpenemsNamedException;
 import io.openems.edge.common.component.AbstractOpenemsComponent;
 import io.openems.edge.common.component.ComponentManager;
@@ -365,8 +364,18 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		return (gridLimit + production) < consumption - firstEssPower - secondEssPower;
 	}
 
-	private int getTotalStoredEnergy(ManagedSymmetricEss supportEss) throws InvalidValueException {
-		int supportEssStoredEnergy = (supportEss.getCapacity().getOrError() * (supportEss.getSoc().getOrError()));
+	private int getTotalStoredEnergy(ManagedSymmetricEss supportEss) {
+		Integer capacity = supportEss.getCapacity().orElse(null);
+		Integer soc = supportEss.getSoc().orElse(null);
+		
+		if (capacity == null || soc == null) {
+			// If capacity or SoC is not available, log a warning and return a high value
+			// to prevent triggering minimum energy charging
+			this.logWarn(this.log, "ESS capacity (" + capacity + " Wh) or SoC (" + soc + " %) is not available - skipping minimum energy check");
+			return Integer.MAX_VALUE; // Return high value to disable minimum energy check
+		}
+		
+		int supportEssStoredEnergy = (capacity * soc);
 		return supportEssStoredEnergy / 100;
 	}
 
