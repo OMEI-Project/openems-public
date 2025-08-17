@@ -11,6 +11,7 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		private String supportId;
 		private String energyPrediction;
 		private String powerPrediction;
+		private boolean enableMinimumEnergyFunction;
 		private int defaultMinimumEnergy;
 		private int maxGridPower;
 		private String dataAcquisitionServiceBaseUrl;
@@ -47,6 +48,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 		
 		public Builder setPowerPrediction(String powerPrediction) {
 			this.powerPrediction = powerPrediction;
+			return this;
+		}
+		
+		public Builder setEnableMinimumEnergyFunction(boolean enableMinimumEnergyFunction) {
+			this.enableMinimumEnergyFunction = enableMinimumEnergyFunction;
 			return this;
 		}
 		
@@ -154,6 +160,11 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	@Override
 	public String supportId() {
 		return this.builder.supportId;
+	}
+
+	@Override
+	public boolean enableMinimumEnergyFunction() {
+		return this.builder.enableMinimumEnergyFunction;
 	}
 
 	@Override

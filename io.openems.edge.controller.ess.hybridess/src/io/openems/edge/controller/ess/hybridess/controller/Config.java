@@ -21,6 +21,9 @@ public
 	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;
 	
+	@AttributeDefinition(name = "Enable Minimum Energy Function", description = "Enable/disable the minimum energy function e.g. to prevent warnings for batteries without capacity information.")
+	boolean enableMinimumEnergyFunction() default false;
+	
 	@AttributeDefinition(name = "Default Minimum Energy", 
 			description = "Minimal total Energy in Wh that should be stored by ESS to ensure EVs can be serviced.", min="0")
 	int defaultMinimumEnergy() default 500;

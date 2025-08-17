@@ -170,6 +170,7 @@ public class HybridControllerTest {
 				.activate(MyConfig.create() //
 						.setId(CTRL_ID) //
 						.setSupportId(SUPPORT_ID) //
+						.setEnableMinimumEnergyFunction(true) // Enable minimum energy function for tests
 						.setDefaultMinimumEnergy(defaultMinimumGridPower) //
 						.setMaxGridPower(MAX_GRID_POWER) //
 						.setDataAcquisitionServiceBaseUrl("http://127.0.0.1:5000/") //

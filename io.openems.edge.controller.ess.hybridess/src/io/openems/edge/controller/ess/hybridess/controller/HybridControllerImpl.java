@@ -67,6 +67,11 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	private String dataAcquisitionServiceBaseUrl;
 	
 	/**
+	 * Flag to enable/disable minimum energy function
+	 */
+	private boolean enableMinimumEnergyFunction;
+	
+	/**
 	 * Minimum total Energy that should be stored by
 	 * ESS to ensure EVs can be serviced.
 	 */
@@ -138,7 +143,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 		this.sum = sum;
 		this.componentManager = componentManager;
-		internalActivate(defaultMinimumEnergy, maxGridPower, supportId, dataAcquisitionServiceBaseUrl, 10,
+		internalActivate(false, defaultMinimumEnergy, maxGridPower, supportId, dataAcquisitionServiceBaseUrl, 10,
 				new int[]{10, 20}, new int[]{85, 95}, 1000, 276_000, 276_000,
 				new double[]{0.0, 0.5, 1.0}, new double[]{0.85, 0.90, 0.85},
 				new double[]{0.0, 0.5, 1.0}, new double[]{0.85, 0.90, 0.85},
@@ -153,13 +158,14 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		);
 	}
 
-	private void internalActivate(int defaultMinimumEnergy, int maxGridPower, String supportId,
+	private void internalActivate(boolean enableMinimumEnergyFunction, int defaultMinimumEnergy, int maxGridPower, String supportId,
 							 String dataAcquisitionServiceBaseUrl, int dataServiceInterval,
 							 int[] lowerSocBounds, int[] upperSocBounds, int maxPowerChangePerCycle,
 							 int maxChargePower, int maxDischargePower,
 							 double[] chargingEfficiencyKeys, double[] chargingEfficiencyValues,
 							 double[] dischargingEfficiencyKeys, double[] dischargingEfficiencyValues,
 							 double batteryChargingEfficiency, double batteryDischargingEfficiency) {
+		this.enableMinimumEnergyFunction = enableMinimumEnergyFunction;
 		this.defaultMinimumEnergy = defaultMinimumEnergy;
 		this.maxGridPower = maxGridPower;
 		this.supportId = supportId;
@@ -183,7 +189,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	@Activate
 	void activate(ComponentContext context, Config config) throws OpenemsNamedException {
 		super.activate(context, config.id(), config.alias(), config.enabled());
-		internalActivate(config.defaultMinimumEnergy(),
+		internalActivate(config.enableMinimumEnergyFunction(), config.defaultMinimumEnergy(),
 				config.maxGridPower(), config.supportId(), config.dataAcquisitionServiceBaseUrl(), 
 				config.dataServiceInterval(), config.lowerSocBounds(), config.upperSocBounds(), 
 				config.maxPowerChangePerCycle(), config.maxChargePower(), config.maxDischargePower(),
@@ -319,7 +325,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 
 		// Logic for single battery system
 		boolean isRedState = supportSocState == SocState.RED;
-		boolean isBelowMinEnergy = defaultMinimumEnergy >= totalStoredEnergy;
+		boolean isBelowMinEnergy = enableMinimumEnergyFunction && (defaultMinimumEnergy >= totalStoredEnergy);
 		boolean shouldForceCharge = shouldChargeNow();
 		
 		if(isRedState || isBelowMinEnergy || shouldForceCharge) {
@@ -369,9 +375,10 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		Integer soc = supportEss.getSoc().orElse(null);
 		
 		if (capacity == null || soc == null) {
-			// If capacity or SoC is not available, log a warning and return a high value
-			// to prevent triggering minimum energy charging
-			this.logWarn(this.log, "ESS capacity (" + capacity + " Wh) or SoC (" + soc + " %) is not available - skipping minimum energy check");
+			// If capacity or SoC is not available, only log warning if minimum energy function is enabled
+			if (enableMinimumEnergyFunction) {
+				this.logWarn(this.log, "ESS capacity (" + capacity + " Wh) or SoC (" + soc + " %) is not available - skipping minimum energy check");
+			}
 			return Integer.MAX_VALUE; // Return high value to disable minimum energy check
 		}
 		
