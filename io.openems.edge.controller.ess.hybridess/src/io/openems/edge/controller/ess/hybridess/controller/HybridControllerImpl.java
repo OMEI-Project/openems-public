@@ -3,6 +3,7 @@ package io.openems.edge.controller.ess.hybridess.controller;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.time.Instant;
@@ -310,6 +311,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	/**
 	 * Calculate power distribution for dual-battery mode during charging
 	 */
+	@SuppressWarnings("unused")
 	private int[] calculateDualBatteryChargePower(int totalChargePower, SocState mainSocState, SocState supportSocState) {
 		double mainPowerPercentage = CHARGE_TABLE[supportSocState.ordinal()][mainSocState.ordinal()];
 		int mainPower = (int) (totalChargePower * mainPowerPercentage);
@@ -320,6 +322,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	/**
 	 * Calculate power distribution for dual-battery mode during discharging
 	 */
+	@SuppressWarnings("unused")
 	private int[] calculateDualBatteryDischargePower(int totalDischargePower, SocState mainSocState, SocState supportSocState) {
 		double mainPowerPercentage = DISCHARGE_TABLE[supportSocState.ordinal()][mainSocState.ordinal()];
 		int mainPower = (int) (totalDischargePower * mainPowerPercentage);
@@ -665,7 +668,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 	        String timestampParam = URLEncoder.encode(simulationTime.toString(), "UTF-8");
 
 	        // Construct the URL with the timestamp parameter using dataAcquisitionServiceBaseUrl
-	        URL url = new URL(this.dataAcquisitionServiceBaseUrl + "should_charge_now?timestamp=" + timestampParam);
+	        URL url = URI.create(this.dataAcquisitionServiceBaseUrl + "should_charge_now?timestamp=" + timestampParam).toURL();
 	        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 	        conn.setRequestMethod("GET");
 	        conn.setRequestProperty("Accept", "text/plain");
@@ -736,7 +739,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			
 			Instant simulationTime = Instant.now(this.componentManager.getClock());
 
-			URL url = new URL(this.dataAcquisitionServiceBaseUrl + "logdata");
+			URL url = URI.create(this.dataAcquisitionServiceBaseUrl + "logdata").toURL();
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 			conn.setDoOutput(true);
 			conn.setRequestMethod("POST");
@@ -768,6 +771,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 		}
 	}
 
+	@SuppressWarnings("unused")
 	private void logSupportEssData(ManagedSymmetricEss supportEss, int actualPower) {
 		flaskSendCounter++;
 		if (flaskSendCounter % dataServiceInterval != 0) {
@@ -787,7 +791,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			
 			Instant simulationTime = Instant.now(this.componentManager.getClock());
 
-			URL url = new URL(this.dataAcquisitionServiceBaseUrl + "logdata");
+			URL url = URI.create(this.dataAcquisitionServiceBaseUrl + "logdata").toURL();
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 			conn.setDoOutput(true);
 			conn.setRequestMethod("POST");
@@ -849,7 +853,7 @@ public class HybridControllerImpl extends AbstractOpenemsComponent implements Hy
 			
 			Instant simulationTime = Instant.now(this.componentManager.getClock());
 
-			URL url = new URL(this.dataAcquisitionServiceBaseUrl + "logdata");
+			URL url = URI.create(this.dataAcquisitionServiceBaseUrl + "logdata").toURL();
 			HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 			conn.setDoOutput(true);
 			conn.setRequestMethod("POST");

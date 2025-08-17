@@ -10,7 +10,6 @@ import io.openems.edge.controller.ess.hybridess.controller.HybridControllerImpl;
 import io.openems.edge.controller.test.ControllerTest;
 import io.openems.edge.ess.api.ManagedSymmetricEss;
 import io.openems.edge.ess.api.SymmetricEss;
-import io.openems.edge.ess.test.DummyPower;
 import io.openems.edge.ess.test.DummyManagedSymmetricEss;
 import io.openems.edge.meter.api.ElectricityMeter;
 import io.openems.edge.meter.test.DummyElectricityMeter;
@@ -18,25 +17,17 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.util.StringJoiner;
-
-import static org.junit.Assert.fail;
 
 public class HybridControllerTest {
 
 	@Rule
     public TemporaryFolder tempFolder = new TemporaryFolder();
+	@SuppressWarnings("unused")
 	private Path energyPrediction;
+	@SuppressWarnings("unused")
 	private Path powerPrediction;
 
 	private TimeLeapClock clock;
@@ -56,23 +47,30 @@ public class HybridControllerTest {
 	private static final ChannelAddress MAIN_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER.id());
 	private static final ChannelAddress MAIN_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT = new ChannelAddress(MAIN_ID, ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER.id());
 	private static final ChannelAddress MAIN_CAPACITY = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.CAPACITY.id());
+	@SuppressWarnings("unused")
 	private static final ChannelAddress MAIN_ACTIVE_POWER = new ChannelAddress(MAIN_ID, SymmetricEss.ChannelId.ACTIVE_POWER.id());
 
 	private static final ChannelAddress SUPPORT_SOC = new ChannelAddress(SUPPORT_ID, SymmetricEss.ChannelId.SOC.id());
+	@SuppressWarnings("unused")
 	private static final ChannelAddress SUPPORT_SET_ACTIVE_POWER_EQUALS = new ChannelAddress(SUPPORT_ID,
 			ManagedSymmetricEss.ChannelId.SET_ACTIVE_POWER_EQUALS.id());
 
+	@SuppressWarnings("unused")
 	private static final ChannelAddress SUPPORT_GET_POSSIBLE_CHARGE_POWER_LOWER_LIMIT = new ChannelAddress(SUPPORT_ID,
 			ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER.id());
+	@SuppressWarnings("unused")
 	private static final ChannelAddress SUPPORT_GET_POSSIBLE_CHARGE_POWER_UPPER_LIMIT = new ChannelAddress(SUPPORT_ID,
 			ManagedSymmetricEss.ChannelId.ALLOWED_CHARGE_POWER.id());
 
+	@SuppressWarnings("unused")
 	private static final ChannelAddress SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_LOWER_LIMIT = new ChannelAddress(SUPPORT_ID,
 			ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER.id());
+	@SuppressWarnings("unused")
 	private static final ChannelAddress SUPPORT_GET_POSSIBLE_DISCHARGE_POWER_UPPER_LIMIT = new ChannelAddress(SUPPORT_ID,
 			ManagedSymmetricEss.ChannelId.ALLOWED_DISCHARGE_POWER.id());
 
 	private static final ChannelAddress SUPPORT_CAPACITY = new ChannelAddress(SUPPORT_ID, SymmetricEss.ChannelId.CAPACITY.id());
+	@SuppressWarnings("unused")
 	private static final ChannelAddress SUPPORT_ACTIVE_POWER = new ChannelAddress(SUPPORT_ID,
 			SymmetricEss.ChannelId.ACTIVE_POWER.id());
 	
@@ -82,8 +80,10 @@ public class HybridControllerTest {
 	private static final String SUM_ID = "_sum";
 
 	private static final ChannelAddress PRODUCTION_POWER = new ChannelAddress(SUM_ID, Sum.ChannelId.PRODUCTION_ACTIVE_POWER.id());
+	@SuppressWarnings("unused")
 	private static final ChannelAddress CONSUMPTION_POWER = new ChannelAddress(SUM_ID, Sum.ChannelId.CONSUMPTION_ACTIVE_POWER.id());
 
+	@SuppressWarnings("unused")
 	private static final ChannelAddress GRID_ACTIVE_POWER = new ChannelAddress(SUM_ID, Sum.ChannelId.GRID_ACTIVE_POWER.id());
 	private static final int MAX_GRID_POWER = 200_000; // W
 	private static final int DEFAULT_MIN_ENERGY = 100_000; // Wh
