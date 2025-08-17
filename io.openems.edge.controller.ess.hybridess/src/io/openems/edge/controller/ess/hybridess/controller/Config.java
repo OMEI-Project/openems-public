@@ -15,8 +15,14 @@ public
 	@AttributeDefinition(name = "Alias", description = "Human-readable name of this Component; defaults to Component-ID")
 	String alias() default "";
 	
-	@AttributeDefinition(name = "Battery-Ess", description = "ID of Battery-Ess. Primary battery system.")
-	String supportId();
+	@AttributeDefinition(name = "Main-Ess", description = "ID of Main-Ess. Primary battery with high capacity, providing power for netload.")
+	String mainId();
+
+	@AttributeDefinition(name = "Enable Dual Battery Mode", description = "Enable dual battery operation with main and support batteries.")
+	boolean enableDualBatteryMode() default false;
+
+	@AttributeDefinition(name = "Support-Ess", description = "ID of Support-Ess. Secondary battery with high power output. Only used in dual battery mode.")
+	String supportId() default "";
 
 	@AttributeDefinition(name = "Is enabled?", description = "Is this Component enabled?")
 	boolean enabled() default true;

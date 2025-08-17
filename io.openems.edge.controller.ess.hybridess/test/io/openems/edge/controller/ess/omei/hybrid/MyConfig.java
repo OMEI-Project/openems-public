@@ -8,6 +8,8 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 	protected static class Builder {
 		private String id;
+		private boolean enableDualBatteryMode;
+		private String mainId;
 		private String supportId;
 		private String energyPrediction;
 		private String powerPrediction;
@@ -33,6 +35,16 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 
 		public Builder setId(String id) {
 			this.id = id;
+			return this;
+		}
+
+		public Builder setEnableDualBatteryMode(boolean enableDualBatteryMode) {
+			this.enableDualBatteryMode = enableDualBatteryMode;
+			return this;
+		}
+
+		public Builder setMainId(String mainId) {
+			this.mainId = mainId;
 			return this;
 		}
 		
@@ -156,10 +168,20 @@ public class MyConfig extends AbstractComponentConfig implements Config {
 	public String id() {
 		return this.builder.id;
 	}
+
+	@Override
+	public String mainId() {
+		return this.builder.mainId != null ? this.builder.mainId : "";
+	}
+
+	@Override
+	public boolean enableDualBatteryMode() {
+		return this.builder.enableDualBatteryMode;
+	}
 	
 	@Override
 	public String supportId() {
-		return this.builder.supportId;
+		return this.builder.supportId != null ? this.builder.supportId : "";
 	}
 
 	@Override
