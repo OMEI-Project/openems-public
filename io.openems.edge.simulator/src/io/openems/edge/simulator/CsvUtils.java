@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 
 public class CsvUtils {
-	
+
 	/**
 	 * Reads a CSV file from a JAR file.
 	 *
@@ -38,7 +38,7 @@ public class CsvUtils {
 		}
 		return result;
 	}
-	
+
 	/**
 	 * Reads a CSV file.
 	 *
@@ -68,7 +68,7 @@ public class CsvUtils {
 		}
 		return result;
 	}
-	
+
 	/**
 	 * Reads a CSV file.
 	 *
@@ -98,11 +98,11 @@ public class CsvUtils {
 		}
 		return result;
 	}
-	
+
 	private static void readTitles(DataContainer result, CsvFormat csvFormat, String line) {
 		result.setKeys(line.split(csvFormat.lineSeparator));
 	}
-	
+
 	private static void readRecord(DataContainer result, CsvFormat csvFormat, float factor, String line) {
 		var values = line.split(csvFormat.lineSeparator);
 		var floatValues = new Float[values.length];
@@ -119,7 +119,7 @@ public class CsvUtils {
 		}
 		result.addRecord(floatValues);
 	}
-	
+
 	/**
 	 * Returns true if the given value is a number.
 	 *

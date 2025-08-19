@@ -6,4 +6,3 @@ Key features:
 - Single/dual battery mode configuration
 - SoC-based state management (RED/ORANGE/GREEN states)
 - Predictive control integration for energy optimization
-- Seamless switching between operational modes
