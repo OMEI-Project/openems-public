@@ -4,8 +4,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 
-import io.openems.edge.common.component.ComponentManager;
-import io.openems.edge.common.test.DummyComponentManager;
 import org.osgi.service.event.EventHandler;
 
 import io.openems.common.types.ChannelAddress;
