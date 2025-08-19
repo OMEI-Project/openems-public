@@ -1,19 +1,12 @@
 package io.openems.edge.simulator;
 
-import io.openems.edge.common.test.Plot;
-
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class CsvUtils {
-
 	/**
 	 * Reads a CSV file from a JAR file.
 	 *
@@ -44,7 +37,6 @@ public class CsvUtils {
 		}
 		return result;
 	}
-
 	/**
 	 * Reads a CSV file.
 	 *
@@ -74,7 +66,6 @@ public class CsvUtils {
 		}
 		return result;
 	}
-
 	/**
 	 * Reads a CSV file.
 	 *
@@ -104,39 +95,9 @@ public class CsvUtils {
 		}
 		return result;
 	}
-
-	public static DataContainer parseCsvDirect(String csv, CsvFormat csvFormat, float factor) {
-		DataContainer result = new DataContainer();
-		String separator = getSeparator(csv, csvFormat);
-		List<String> values = new ArrayList<String>(Arrays.asList(csv.split(separator)));
-		if(!isNumeric(values.get(0))) {
-			result.setKeys(new String[]{values.get(0)});
-			values.remove(0);
-		}
-		values.stream()
-				.filter(value->isNumeric(value) && !value.isEmpty())
-				.map(value -> value.replace(csvFormat.decimalSeparator, "."))
-				.map(value -> Float.parseFloat(value) * factor)
-				.forEach(value->result.addRecord(new Float[] {value}));
-		return result;
-	}
-
-	private static String getSeparator(String csv, CsvFormat csvFormat) {
-		String separator = " ";
-		if(csv.contains(csvFormat.lineSeparator)) {
-			separator = csvFormat.lineSeparator;
-		} else if(csv.contains("\\r?\\n")) {
-			separator = "\\r?\\n";
-		} else if (csv.contains(System.lineSeparator())) {
-			separator = System.lineSeparator();
-		}
-		return separator;
-	}
-
 	private static void readTitles(DataContainer result, CsvFormat csvFormat, String line) {
 		result.setKeys(line.split(csvFormat.lineSeparator));
 	}
-
 	private static void readRecord(DataContainer result, CsvFormat csvFormat, float factor, String line) {
 		var values = line.split(csvFormat.lineSeparator);
 		var floatValues = new Float[values.length];
@@ -153,7 +114,6 @@ public class CsvUtils {
 		}
 		result.addRecord(floatValues);
 	}
-
 	/**
 	 * Returns true if the given value is a number.
 	 *
