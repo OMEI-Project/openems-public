@@ -114,7 +114,6 @@
 	bnd.identity;id='io.openems.edge.controller.symmetric.timeslotpeakshaving',\
 	bnd.identity;id='io.openems.edge.core',\
 	bnd.identity;id='io.openems.edge.edge2edge',\
-	bnd.identity;id='io.openems.edge.adapter.edge2edge',\
 	bnd.identity;id='io.openems.edge.energy',\
 	bnd.identity;id='io.openems.edge.ess.adstec.storaxe',\
 	bnd.identity;id='io.openems.edge.ess.byd.container',\
