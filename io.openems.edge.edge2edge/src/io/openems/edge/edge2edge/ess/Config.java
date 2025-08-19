@@ -37,3 +37,4 @@ import io.openems.common.channel.AccessMode;
 	String webconsole_configurationFactory_nameHint() default "Edge-2-Edge ESS [{id}]";
 
 }
+

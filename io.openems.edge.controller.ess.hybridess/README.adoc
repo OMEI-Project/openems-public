@@ -1,0 +1,8 @@
+= HybridController
+
+The HybridController manages energy storage systems with flexible battery configurations. It supports both single-battery and dual-battery operation modes, enabling optimized energy management for hybrid ESS setups.
+
+Key features:
+- Single/dual battery mode configuration
+- SoC-based state management (RED/ORANGE/GREEN states)
+- Predictive control integration for energy optimization

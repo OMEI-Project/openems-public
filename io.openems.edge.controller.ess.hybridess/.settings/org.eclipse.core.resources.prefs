@@ -1,0 +1,9 @@
+eclipse.preferences.version=1
+encoding//src/io/openems/edge/controller/ess/hybridess/Config.java=UTF-8
+encoding//src/io/openems/edge/controller/ess/hybridess/HybridController.java=UTF-8
+encoding//src/io/openems/edge/controller/ess/hybridess/HybridControllerImpl.java=UTF-8
+encoding//test/io/openems/edge/controller/ess/omei/hybrid/HybridControllerTest.java=UTF-8
+encoding//test/io/openems/edge/controller/ess/omei/hybrid/MyConfig.java=UTF-8
+encoding/<project>=UTF-8
+encoding/bnd.bnd=UTF-8
+encoding/readme.adoc=UTF-8
